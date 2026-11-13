@@ -14,6 +14,8 @@
           default = pkgs.mkShell {
             packages = [
               pkgs.nodejs_24
+              pkgs.just
+              pkgs.ripgrep
               
             ];
           };
