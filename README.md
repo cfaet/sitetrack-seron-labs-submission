@@ -51,6 +51,14 @@ server reports PostgreSQL 16.15. The shell supplies database tools; it does not
 start or configure PostgreSQL. `flake.lock` pins the nixpkgs revision used by
 the shell.
 
+The shell also supplies Docker CLI 29.9.2, Compose 5.7.0 and Buildx 0.38.1.
+These commands and Compose configuration validation were verified on 14 November
+2026 against the host Docker Engine 29.7.2. A running Docker daemon must be
+provided separately by the host; the dev shell does not start one. Container
+build, fresh startup, database outage/recovery and persistent restart passed;
+see the [foundation notes](docs/STAGE1.md#docker-rehearsal-14-november-2026)
+for evidence and the host networking correction made during verification.
+
 Install the locked npm dependencies with `npm ci`. Without Nix, provide Node.js
 24 and npm directly; Just is optional. TypeScript, tsx, and Vitest come from the
 project's npm dependencies.

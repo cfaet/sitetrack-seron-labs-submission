@@ -19,7 +19,7 @@
               pkgs.postgresql_16
               pkgs.curl
               pkgs.sops
-              
+              pkgs.docker-client
             ];
           };
         });

@@ -9,7 +9,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sitetrack -d sitetrack"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "sitetrack", "-d", "sitetrack"]
+      # Fresh initdb may take time; its temporary server listens only on a socket.
+      start_period: 90s
       interval: 3s
       timeout: 3s
       retries: 10
