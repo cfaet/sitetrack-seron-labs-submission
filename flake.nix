@@ -16,6 +16,9 @@
               pkgs.nodejs_24
               pkgs.just
               pkgs.ripgrep
+              pkgs.postgresql_16
+              pkgs.curl
+              pkgs.sops
               
             ];
           };

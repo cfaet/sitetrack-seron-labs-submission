@@ -7,8 +7,13 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "start": "node --enable-source-maps dist/main.js",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --watch --project unit",
+    "test:integration": "vitest run --project integration",
+    "check": "npm run typecheck && npm test && npm run build",
+    "db:check": "tsx src/db/cli.ts check",
+    "db:test:check": "tsx src/db/cli.ts test-check",
+    "db:migrate": "tsx src/db/cli.ts migrate"
   },
   "keywords": [],
   "author": "",

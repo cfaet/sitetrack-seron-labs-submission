@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16.16-bookworm
+    environment:
+      # Public demo credentials for this isolated reviewer environment only.
+      POSTGRES_DB: sitetrack
+      POSTGRES_USER: sitetrack
+      POSTGRES_PASSWORD: sitetrack_demo_only
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sitetrack -d sitetrack"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    # PostgreSQL is reachable only on the Compose network.
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://sitetrack:sitetrack_demo_only@db:5432/sitetrack
+      HOST: 0.0.0.0
+      PORT: "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 6
+volumes:
+  postgres_data:
