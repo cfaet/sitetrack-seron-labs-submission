@@ -1,9 +1,9 @@
 import { Effect, Schema } from "effect"
 import { Database, rows } from "../repositories/database.js"
-import { Actor, Project } from "../domain/models.js"
+import { Actor, ProjectBase } from "../domain/models.js"
 import { forbidden, notFound } from "../domain/errors.js"
 import { Auth } from "./auth.js"
-export const ProjectRecord = Schema.Struct({ ...Project.fields, internalId: Schema.String })
+export const ProjectRecord = Schema.Struct({ ...ProjectBase.fields, internalId: Schema.String })
 export type ProjectRecord = typeof ProjectRecord.Type
 export const projectAccess = Effect.fn("projectAccess")(function* (actor: Actor, publicId: string, admin = false) {
   const sql = yield* Database

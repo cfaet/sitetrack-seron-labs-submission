@@ -4,13 +4,15 @@ Construction project and materials-tracking backend, using TypeScript, Effect 4,
 Node.js, and PostgreSQL. See [SPEC.md](SPEC.md) for the implementation baseline
 and staged acceptance criteria.
 
-The foundation and Stage 2 implement operational HTTP, PostgreSQL/migrations,
-accounts and browser sessions, projects, memberships, invitations and notifications.
+The foundation and Stages 2–3 implement operational HTTP, PostgreSQL/migrations,
+accounts and browser sessions, projects, memberships, invitations, notifications,
+tasks, dependency graphs and project task summaries.
 Any HTTP client can use the API. See [Stage 2 contracts and curl examples](docs/STAGE2.md)
 and [non-browser client guidance](docs/STAGE2.md#non-browser-clients) for Bearer tokens,
 cookie jars and refresh/logout behavior. The generated OpenAPI/Swagger includes
-the same authentication workflow. Tasks, inventory and large-scale data loading
-come in later stages.
+the same authentication workflow. See [Stage 3 tasks and graphs](docs/STAGE3.md)
+for task actions, relationship pagination, filters and company dates. Inventory
+and large-scale data loading come in later stages.
 
 ## Reviewer startup
 
@@ -186,6 +188,7 @@ private bundle files.
 | `AUTH_JWT_SECRET` | Required by the API only; private base64url signing material, at least 32 decoded bytes |
 | `AUTH_COOKIE_SECURE` | Defaults true; explicitly false for local HTTP |
 | `AUTH_ALLOWED_ORIGINS` | Exact comma-separated browser origins; defaults to localhost/127.0.0.1 on port 3000 |
+| `COMPANY_TIME_ZONE` | API-only named timezone for task Late flags; defaults to `Asia/Muscat`; invalid values fail before database startup |
 | `TEST_DATABASE_URL` | Required separately for integration; no development fallback |
 | `SITETRACK_TEST_DISPOSABLE` | Must be exactly `true` for test commands |
 

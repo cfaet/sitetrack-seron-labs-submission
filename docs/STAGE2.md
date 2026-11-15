@@ -3,7 +3,8 @@
 The API implements registration/login/refresh/logout, profile reads, projects,
 memberships, invitations and recipient-scoped notifications. Task statistics and
 graphs are Stage 3; stock, delivery behavior and company-store projections are
-Stage 4. There is no frontend or large seed yet.
+Stage 4. There is no frontend or large seed yet. This guide records the Stage 2
+checkpoint; [Stage 3](STAGE3.md) adds task/graph routes and project task summaries.
 
 ## Runtime and configuration
 

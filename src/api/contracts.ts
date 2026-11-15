@@ -8,6 +8,7 @@ import {
   OpenApi
 } from "effect/http-api"
 import * as Model from "../domain/models.js"
+import * as TaskModel from "../domain/task-models.js"
 import { errors } from "./common.js"
 
 const refreshSecurity = HttpApiSecurity.apiKey({ key: "sitetrack_refresh", in: "cookie" }).pipe(
@@ -117,6 +118,84 @@ export const Identity = HttpApiGroup.make("identity")
     "Bearer-authenticated profile and logout operations. These endpoints are available to browsers, HTTP libraries, mobile apps, backend services and curl."
   )
 const projectParams = { projectId: Model.ProjectId }
+const taskParams = { ...projectParams, taskId: TaskModel.TaskId }
+export const TasksApi = HttpApiGroup.make("tasks")
+  .add(
+    Endpoint.get("list", "/api/v1/projects/:projectId/tasks", {
+      params: projectParams,
+      query: TaskModel.TaskQuery,
+      success: Model.collection(TaskModel.Task),
+      error: errors
+    }).annotate(OpenApi.Summary, "List project tasks with current Late and Blocked flags"),
+    Endpoint.post("create", "/api/v1/projects/:projectId/tasks", {
+      params: projectParams,
+      payload: TaskModel.TaskInput,
+      success: TaskModel.TaskDetail.annotate({ httpApiStatus: 201 }),
+      error: errors
+    }).annotate(OpenApi.Summary, "Create a NotStarted task with a permanent project-local ID"),
+    Endpoint.get("get", "/api/v1/projects/:projectId/tasks/:taskId", {
+      params: taskParams,
+      success: TaskModel.TaskDetail,
+      error: errors
+    }).annotate(OpenApi.Summary, "Read a task and currently allowed status actions"),
+    Endpoint.patch("update", "/api/v1/projects/:projectId/tasks/:taskId", {
+      params: taskParams,
+      payload: TaskModel.TaskPatch,
+      success: TaskModel.TaskDetail,
+      error: errors
+    }).annotate(OpenApi.Summary, "Update task name or planned dates"),
+    Endpoint.delete("remove", "/api/v1/projects/:projectId/tasks/:taskId", {
+      params: taskParams,
+      success: HttpApiSchema.NoContent,
+      error: errors
+    }).annotate(OpenApi.Summary, "Soft-delete a task with no active incoming dependents"),
+    Endpoint.post("start", "/api/v1/projects/:projectId/tasks/:taskId/start", {
+      params: taskParams,
+      payload: Model.Empty,
+      success: TaskModel.TaskDetail,
+      error: errors
+    }).annotate(OpenApi.Summary, "Start after all transitive prerequisites are Done"),
+    Endpoint.post("complete", "/api/v1/projects/:projectId/tasks/:taskId/complete", {
+      params: taskParams,
+      payload: Model.Empty,
+      success: TaskModel.TaskDetail,
+      error: errors
+    }).annotate(OpenApi.Summary, "Complete an InProgress task"),
+    Endpoint.post("reopen", "/api/v1/projects/:projectId/tasks/:taskId/reopen", {
+      params: taskParams,
+      payload: Model.Empty,
+      success: TaskModel.TaskDetail,
+      error: errors
+    }).annotate(OpenApi.Summary, "Reopen when no reachable dependent has ever started"),
+    Endpoint.post("addDependency", "/api/v1/projects/:projectId/tasks/:taskId/dependencies", {
+      params: taskParams,
+      payload: TaskModel.DependencyInput,
+      success: TaskModel.Dependency.annotate({ httpApiStatus: 201 }),
+      error: errors
+    }).annotate(OpenApi.Summary, "Add a same-project prerequisite before the dependent starts"),
+    Endpoint.delete("removeDependency", "/api/v1/projects/:projectId/tasks/:taskId/dependencies/:prerequisiteId", {
+      params: { ...taskParams, prerequisiteId: TaskModel.TaskId },
+      success: HttpApiSchema.NoContent,
+      error: errors
+    }).annotate(OpenApi.Summary, "Remove a direct prerequisite before the dependent starts"),
+    Endpoint.get("prerequisites", "/api/v1/projects/:projectId/tasks/:taskId/prerequisites", {
+      params: taskParams,
+      query: Model.ListQuery,
+      success: Model.collection(TaskModel.TaskRelation),
+      error: errors
+    }).annotate(OpenApi.Summary, "Page through all reachable prerequisites with shortest distance"),
+    Endpoint.get("dependents", "/api/v1/projects/:projectId/tasks/:taskId/dependents", {
+      params: taskParams,
+      query: Model.ListQuery,
+      success: Model.collection(TaskModel.TaskRelation),
+      error: errors
+    }).annotate(OpenApi.Summary, "Page through all reachable dependents with shortest distance")
+  )
+  .middleware(Authentication)
+  .annotate(
+    OpenApi.Description,
+    "Project members and SuperAdmins can manage tasks. A dependent waits for every reachable prerequisite. Status commands revalidate under the project lock; allowedActions is advisory. Dates use COMPANY_TIME_ZONE (default Asia/Muscat). Relationships are paginated, ordered by distance then numeric task ID. Task names are trimmed and limited to 200 UTF-16 code units. Task query flags accept literal true/false, planned range is inclusive overlap, and unknown fields fail. Dependency/self/cycle/state/deletion conflicts return 409; tasks outside the path project are hidden with 404."
+  )
 export const ProjectsApi = HttpApiGroup.make("projects")
   .add(
     Endpoint.get("list", "/api/v1/projects", {

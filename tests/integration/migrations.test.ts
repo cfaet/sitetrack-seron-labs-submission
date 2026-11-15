@@ -5,6 +5,9 @@ import { databaseLayer } from "../../src/db/database.js"
 import { initializeDatabase, migrate } from "../../src/db/migrate.js"
 import { inspectDatabase } from "../../src/db/inspect.js"
 import projectNumber from "../../src/db/migrations/0001_project_number.js"
+import identity from "../../src/db/migrations/0002_identity.js"
+import projects from "../../src/db/migrations/0003_projects.js"
+import invitations from "../../src/db/migrations/0004_invitations.js"
 import { withTestDatabase } from "./database-fixture.js"
 
 describe("PostgreSQL migrations (BOOT-02)", () => {
@@ -23,7 +26,8 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
             { migration_id: 1, name: "project_number" },
             { migration_id: 2, name: "identity" },
             { migration_id: 3, name: "projects" },
-            { migration_id: 4, name: "invitations" }
+            { migration_id: 4, name: "invitations" },
+            { migration_id: 5, name: "tasks" }
           ])
         })
       )
@@ -38,9 +42,40 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
           yield* migrate(config, Migrator.fromRecord({ "0001_project_number": projectNumber }))
           expect(yield* sql`SELECT nextval('project_number_seq')::text AS number`).toEqual([{ number: "1" }])
           yield* initializeDatabase(config)
-          expect((yield* inspectDatabase(config)).migrations.map((entry) => entry.migration_id)).toEqual([1, 2, 3, 4])
+          expect((yield* inspectDatabase(config)).migrations.map((entry) => entry.migration_id)).toEqual([
+            1, 2, 3, 4, 5
+          ])
           expect(yield* sql`SELECT nextval('project_number_seq')::text AS number`).toEqual([{ number: "2" }])
           expect(yield* sql`SELECT count(*)::int AS count FROM stores WHERE project_id IS NULL`).toEqual([{ count: 1 }])
+        })
+      )
+    )
+  })
+
+  it("upgrades retained Stage 2 project data without resetting counters or memberships", async () => {
+    await Effect.runPromise(
+      withTestDatabase((config) =>
+        Effect.gen(function* () {
+          const sql = yield* SqlClient.SqlClient
+          yield* migrate(
+            config,
+            Migrator.fromRecord({
+              "0001_project_number": projectNumber,
+              "0002_identity": identity,
+              "0003_projects": projects,
+              "0004_invitations": invitations
+            })
+          )
+          yield* sql`INSERT INTO users(id,name,email,password_hash,role,created_at) VALUES ('00000000-0000-4000-8000-000000000010','Retained','retained@example.test','fixture-only','User','2026-11-14T00:00:00Z')`
+          yield* sql`INSERT INTO projects(id,name,start_date,end_date,task_counter) VALUES ('00000000-0000-4000-8000-000000000020','Retained','2026-01-01','2026-12-31',27)`
+          yield* sql`INSERT INTO memberships(project_id,user_id,is_admin) VALUES ('00000000-0000-4000-8000-000000000020','00000000-0000-4000-8000-000000000010',true)`
+          yield* initializeDatabase(config)
+          expect(yield* sql`SELECT public_id,task_counter::text AS counter FROM projects`).toEqual([
+            { public_id: "PRJ-0001", counter: "27" }
+          ])
+          expect(yield* sql`SELECT count(*)::int AS count FROM memberships WHERE is_admin`).toEqual([{ count: 1 }])
+          expect(yield* sql`SELECT count(*)::int AS count FROM tasks`).toEqual([{ count: 0 }])
+          expect(yield* sql`SELECT nextval('project_number_seq')::text AS number`).toEqual([{ number: "2" }])
         })
       )
     )

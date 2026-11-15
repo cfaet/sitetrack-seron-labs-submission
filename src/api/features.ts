@@ -7,6 +7,8 @@ import * as Model from "../domain/models.js"
 import { Auth } from "../services/auth.js"
 import { Projects } from "../services/projects.js"
 import { Teams } from "../services/teams.js"
+import { Tasks } from "../services/tasks.js"
+import * as TaskModel from "../domain/task-models.js"
 import { Throttle } from "../services/security.js"
 import { Api } from "./api.js"
 import { Authentication, CurrentActor, RefreshCookie, RefreshCredential } from "./contracts.js"
@@ -325,9 +327,163 @@ const RefreshCookieLayer = Layer.succeed(
     refreshCookie: (http, { credential }) => Effect.provideService(http, RefreshCredential, Redacted.value(credential))
   })
 )
-export const featureHandlers = Layer.mergeAll(AccountHandlers, IdentityHandlers, ProjectHandlers, TeamHandlers).pipe(
-  Layer.provide([AuthenticationLayer, RefreshCookieLayer])
+export const TaskHandlers = HttpApiBuilder.group(Api, "tasks", (handlers) =>
+  handlers
+    .handle("list", ({ params, query }) =>
+      guarded(
+        Effect.gen(function* () {
+          return yield* jsonResponse(
+            Model.collection(TaskModel.Task),
+            yield* (yield* Tasks).list(yield* CurrentActor, params.projectId, query)
+          )
+        })
+      )
+    )
+    .handle("get", ({ params }) =>
+      guarded(
+        Effect.gen(function* () {
+          return yield* jsonResponse(
+            TaskModel.TaskDetail,
+            yield* (yield* Tasks).get(yield* CurrentActor, params.projectId, params.taskId)
+          )
+        })
+      )
+    )
+    .handleRaw("create", ({ params, request }) =>
+      guarded(
+        Effect.gen(function* () {
+          return yield* jsonResponse(
+            TaskModel.TaskDetail,
+            yield* (yield* Tasks).create(
+              yield* CurrentActor,
+              params.projectId,
+              yield* readInput(TaskModel.TaskInput, request)
+            ),
+            201
+          )
+        })
+      )
+    )
+    .handleRaw("update", ({ params, request }) =>
+      guarded(
+        Effect.gen(function* () {
+          return yield* jsonResponse(
+            TaskModel.TaskDetail,
+            yield* (yield* Tasks).update(
+              yield* CurrentActor,
+              params.projectId,
+              params.taskId,
+              yield* readInput(TaskModel.TaskPatch, request)
+            )
+          )
+        })
+      )
+    )
+    .handle("remove", ({ params }) =>
+      guarded(
+        Effect.gen(function* () {
+          yield* (yield* Tasks).remove(yield* CurrentActor, params.projectId, params.taskId)
+          return HttpServerResponse.empty({ status: 204 })
+        })
+      )
+    )
+    .handleRaw("start", ({ params, request }) =>
+      guarded(
+        Effect.gen(function* () {
+          yield* readInput(Model.Empty, request)
+          return yield* jsonResponse(
+            TaskModel.TaskDetail,
+            yield* (yield* Tasks).action(yield* CurrentActor, params.projectId, params.taskId, "start")
+          )
+        })
+      )
+    )
+    .handleRaw("complete", ({ params, request }) =>
+      guarded(
+        Effect.gen(function* () {
+          yield* readInput(Model.Empty, request)
+          return yield* jsonResponse(
+            TaskModel.TaskDetail,
+            yield* (yield* Tasks).action(yield* CurrentActor, params.projectId, params.taskId, "complete")
+          )
+        })
+      )
+    )
+    .handleRaw("reopen", ({ params, request }) =>
+      guarded(
+        Effect.gen(function* () {
+          yield* readInput(Model.Empty, request)
+          return yield* jsonResponse(
+            TaskModel.TaskDetail,
+            yield* (yield* Tasks).action(yield* CurrentActor, params.projectId, params.taskId, "reopen")
+          )
+        })
+      )
+    )
+    .handleRaw("addDependency", ({ params, request }) =>
+      guarded(
+        Effect.gen(function* () {
+          const input = yield* readInput(TaskModel.DependencyInput, request)
+          return yield* jsonResponse(
+            TaskModel.Dependency,
+            yield* (yield* Tasks).addDependency(
+              yield* CurrentActor,
+              params.projectId,
+              params.taskId,
+              input.prerequisiteTaskId
+            ),
+            201
+          )
+        })
+      )
+    )
+    .handle("removeDependency", ({ params }) =>
+      guarded(
+        Effect.gen(function* () {
+          yield* (yield* Tasks).removeDependency(
+            yield* CurrentActor,
+            params.projectId,
+            params.taskId,
+            params.prerequisiteId
+          )
+          return HttpServerResponse.empty({ status: 204 })
+        })
+      )
+    )
+    .handle("prerequisites", ({ params, query }) =>
+      guarded(
+        Effect.gen(function* () {
+          return yield* jsonResponse(
+            Model.collection(TaskModel.TaskRelation),
+            yield* (yield* Tasks).relations(
+              yield* CurrentActor,
+              params.projectId,
+              params.taskId,
+              "prerequisites",
+              query
+            )
+          )
+        })
+      )
+    )
+    .handle("dependents", ({ params, query }) =>
+      guarded(
+        Effect.gen(function* () {
+          return yield* jsonResponse(
+            Model.collection(TaskModel.TaskRelation),
+            yield* (yield* Tasks).relations(yield* CurrentActor, params.projectId, params.taskId, "dependents", query)
+          )
+        })
+      )
+    )
 )
+export const featureHandlers = Layer.mergeAll(
+  AccountHandlers,
+  IdentityHandlers,
+  ProjectHandlers,
+  TeamHandlers,
+  TaskHandlers
+).pipe(Layer.provide([AuthenticationLayer, RefreshCookieLayer]))
 export const browserMiddleware = HttpRouter.middleware(
   Effect.gen(function* () {
     const config = yield* AuthSettings

@@ -1,16 +1,22 @@
 import { createServer } from "node:http"
 import { NodeHttpServer } from "@effect/platform-node"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, type DateTime } from "effect"
 import { HttpRouter } from "effect/http"
 import type { Migrator } from "effect/sql"
 import { databaseHealthLayer, routes } from "./api/routes.js"
 import { applicationRoutes } from "./api/application.js"
 import { AuthSettings, type AuthConfig } from "./config/auth.js"
+import { CompanyTime, CompanyZone, defaultCompanyZone } from "./config/company.js"
 import type { AppConfig } from "./config/config.js"
 import { databaseLayer } from "./db/database.js"
 import { initializeDatabase, migrations } from "./db/migrate.js"
 
-export const serverLayer = (config: AppConfig, loader: Migrator.Loader = migrations, auth?: AuthConfig) =>
+export const serverLayer = (
+  config: AppConfig,
+  loader: Migrator.Loader = migrations,
+  auth?: AuthConfig,
+  zone: DateTime.TimeZone.Named = defaultCompanyZone
+) =>
   Layer.unwrap(
     Effect.gen(function* () {
       yield* initializeDatabase(config, loader)
@@ -18,7 +24,14 @@ export const serverLayer = (config: AppConfig, loader: Migrator.Loader = migrati
       return HttpRouter.serve(
         auth === undefined
           ? routes.pipe(Layer.provide(databaseHealthLayer))
-          : applicationRoutes.pipe(Layer.provide(Layer.succeed(AuthSettings, auth))),
+          : applicationRoutes.pipe(
+              Layer.provide(
+                Layer.mergeAll(
+                  Layer.succeed(AuthSettings, auth),
+                  CompanyTime.layer.pipe(Layer.provide(Layer.succeed(CompanyZone, zone)))
+                )
+              )
+            ),
         {
           disableLogger: true,
           disableListenLog: true

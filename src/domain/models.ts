@@ -59,13 +59,26 @@ export const ProjectPatch = Schema.Struct({
   endDate: Schema.optionalKey(CalendarDate)
 }).check(Schema.makeFilter((input) => Object.keys(input).length > 0, { expected: "at least one editable field" }))
 export const ProjectId = Schema.String.check(Schema.isPattern(/^PRJ-\d{4,}$/))
-export const Project = Schema.Struct({
+export const ProjectBase = Schema.Struct({
   id: ProjectId,
   name: Schema.String,
   startDate: CalendarDate,
   endDate: CalendarDate,
   isAdmin: Schema.Boolean,
   memberCount: Schema.Int
+})
+export const TaskCounts = Schema.Struct({
+  total: Schema.Int,
+  notStarted: Schema.Int,
+  inProgress: Schema.Int,
+  done: Schema.Int
+})
+export const Project = Schema.Struct({
+  ...ProjectBase.fields,
+  taskCounts: TaskCounts,
+  completionPercentage: Schema.Finite,
+  lateCount: Schema.Int,
+  blockedCount: Schema.Int
 })
 export type Project = typeof Project.Type
 export const PageNumber = Schema.NumberFromString.check(
@@ -78,7 +91,8 @@ export type ListQuery = typeof ListQuery.Type
 export const ProjectQuery = Schema.Struct({
   ...ListQuery.fields,
   search: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(200))),
-  sort: Schema.optionalKey(Schema.Literals(["name", "startDate"])),
+  hasLate: Schema.optionalKey(Schema.Literals(["true", "false"])),
+  sort: Schema.optionalKey(Schema.Literals(["name", "startDate", "completionPercentage", "lateCount"])),
   direction: Schema.optionalKey(Schema.Literals(["asc", "desc"]))
 })
 export const Pagination = Schema.Struct({

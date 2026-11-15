@@ -1,4 +1,5 @@
-import { Effect, Layer, Redacted, Schema } from "effect"
+import { Effect, Layer, Redacted, Schema, DateTime } from "effect"
+import { CompanyTime, CompanyZone, companyInstant, readCompanyZone } from "../../src/config/company.js"
 import { HttpRouter, HttpServer } from "effect/http"
 import { SqlClient } from "effect/sql"
 import { applicationRoutes } from "../../src/api/application.js"
@@ -17,15 +18,26 @@ export interface Client {
   readonly token?: string
   readonly cookie?: string
 }
-export const withApp = <A>(run: (app: TestApp) => Promise<A>, options: { readonly secureCookie?: boolean } = {}) =>
+export const withApp = <A>(
+  run: (app: TestApp) => Promise<A>,
+  options: { readonly secureCookie?: boolean; readonly companyTimeZone?: string; readonly now?: number } = {}
+) =>
   withTestDatabase((config) =>
     Effect.gen(function* () {
       yield* initializeDatabase(config)
       const context = yield* Effect.context<SqlClient.SqlClient>()
       const sql = yield* SqlClient.SqlClient
+      const zone = yield* readCompanyZone({ COMPANY_TIME_ZONE: options.companyTimeZone })
+      const time =
+        options.now === undefined
+          ? CompanyTime.layer.pipe(Layer.provide(Layer.succeed(CompanyZone, zone)))
+          : Layer.succeed(CompanyTime, { now: Effect.succeed(companyInstant(DateTime.makeUnsafe(options.now), zone)) })
       const web = HttpRouter.toWebHandler(
         applicationRoutes.pipe(
-          Layer.provide(Layer.succeed(AuthSettings, { ...testAuth, ...options })),
+          Layer.provide(
+            Layer.succeed(AuthSettings, { ...testAuth, secureCookie: options.secureCookie ?? testAuth.secureCookie })
+          ),
+          Layer.provide(time),
           Layer.provide(Layer.succeedContext(context)),
           Layer.provide(HttpServer.layerServices)
         ),
