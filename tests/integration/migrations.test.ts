@@ -4,6 +4,7 @@ import { Migrator, SqlClient } from "effect/sql"
 import { databaseLayer } from "../../src/db/database.js"
 import { initializeDatabase, migrate } from "../../src/db/migrate.js"
 import { inspectDatabase } from "../../src/db/inspect.js"
+import projectNumber from "../../src/db/migrations/0001_project_number.js"
 import { withTestDatabase } from "./database-fixture.js"
 
 describe("PostgreSQL migrations (BOOT-02)", () => {
@@ -16,7 +17,19 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
       yield* initializeDatabase(config).pipe(Effect.provide(databaseLayer(config)))
       const second = yield* sql`SELECT nextval('project_number_seq')::text AS number`
       expect(second).toEqual([{ number: "2" }])
-      expect((yield* inspectDatabase(config)).migrations).toEqual([{ migration_id: 1, name: "project_number" }])
+      expect((yield* inspectDatabase(config)).migrations).toEqual([{ migration_id: 1, name: "project_number" }, { migration_id: 2, name: "identity" }, { migration_id: 3, name: "projects" }, { migration_id: 4, name: "invitations" }])
+    })))
+  })
+
+  it("upgrades a retained Stage 1 ledger without resetting issued identifiers", async () => {
+    await Effect.runPromise(withTestDatabase((config) => Effect.gen(function*() {
+      const sql = yield* SqlClient.SqlClient
+      yield* migrate(config, Migrator.fromRecord({ "0001_project_number": projectNumber }))
+      expect(yield* sql`SELECT nextval('project_number_seq')::text AS number`).toEqual([{ number: "1" }])
+      yield* initializeDatabase(config)
+      expect((yield* inspectDatabase(config)).migrations.map((entry) => entry.migration_id)).toEqual([1,2,3,4])
+      expect(yield* sql`SELECT nextval('project_number_seq')::text AS number`).toEqual([{ number: "2" }])
+      expect(yield* sql`SELECT count(*)::int AS count FROM stores WHERE project_id IS NULL`).toEqual([{ count: 1 }])
     })))
   })
 

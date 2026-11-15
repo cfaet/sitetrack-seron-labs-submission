@@ -143,7 +143,7 @@ describe("real startup and resource lifecycle (BOOT-02)", () => {
       yield* Effect.promise(async () => {
         for (let attempt = 0; attempt < 2; attempt++) {
           const child = spawn(process.execPath, ["--import", "tsx", "src/main.ts"], {
-            env: { PATH: process.env.PATH, DATABASE_URL: Redacted.value(config.databaseUrl), DATABASE_SCHEMA: config.schema, HOST: "127.0.0.1", PORT: String(port) },
+            env: { AUTH_JWT_SECRET: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc", PATH: process.env.PATH, DATABASE_URL: Redacted.value(config.databaseUrl), DATABASE_SCHEMA: config.schema, HOST: "127.0.0.1", PORT: String(port) },
             stdio: "ignore"
           })
           const exited = once(child, "exit")

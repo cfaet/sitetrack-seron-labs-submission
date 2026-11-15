@@ -5,12 +5,15 @@ import { Migrator, SqlClient, SqlError } from "effect/sql"
 import type { AppConfig } from "../config/config.js"
 import { queryProbe } from "./database.js"
 import projectNumber from "./migrations/0001_project_number.js"
+import identity from "./migrations/0002_identity.js"
+import projects from "./migrations/0003_projects.js"
+import invitations from "./migrations/0004_invitations.js"
 
 export class StartupError extends Data.TaggedError("StartupError")<{
   readonly message: string
 }> {}
 
-export const migrations = Migrator.fromRecord({ "0001_project_number": projectNumber })
+export const migrations = Migrator.fromRecord({ "0001_project_number": projectNumber, "0002_identity": identity, "0003_projects": projects, "0004_invitations": invitations })
 
 export const migrate = Effect.fn("migrate")(function*(config: AppConfig, loader: Migrator.Loader = migrations) {
   const sql = yield* SqlClient.SqlClient

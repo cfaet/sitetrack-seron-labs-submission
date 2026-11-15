@@ -4,9 +4,13 @@ Construction project and materials-tracking backend, using TypeScript, Effect 4,
 Node.js, and PostgreSQL. See [SPEC.md](SPEC.md) for the implementation baseline
 and staged acceptance criteria.
 
-Stage 1 implements the HTTP service, PostgreSQL pooling and startup migrations,
-health endpoints, generated OpenAPI/Swagger documentation, and foundation tests.
-Authentication and project/task/inventory endpoints come in later stages.
+The foundation and Stage 2 implement operational HTTP, PostgreSQL/migrations,
+accounts and browser sessions, projects, memberships, invitations and notifications.
+Any HTTP client can use the API. See [Stage 2 contracts and curl examples](docs/STAGE2.md)
+and [non-browser client guidance](docs/STAGE2.md#non-browser-clients) for Bearer tokens,
+cookie jars and refresh/logout behavior. The generated OpenAPI/Swagger includes
+the same authentication workflow. Tasks, inventory and large-scale data loading
+come in later stages.
 
 ## Reviewer startup
 
@@ -119,7 +123,11 @@ Create separate SOPS-encrypted dotenv bundles in the repo-local `secrets/`
 directory, using your existing recipient/key setup:
 `secrets/dev.enc.env` and `secrets/test.enc.env`. Both Git and the Docker build
 context exclude this directory. Keep private keys separately managed.
-The development bundle contains `DATABASE_URL`; the test bundle contains only
+The development bundle contains `DATABASE_URL` and a persistent private
+`AUTH_JWT_SECRET` (base64url, at least 32 random bytes). Add
+`AUTH_COOKIE_SECURE=false` for local HTTP. Browser origins default to the API's
+localhost/127.0.0.1 port 3000 origins; explicitly configure `AUTH_ALLOWED_ORIGINS`
+when using another frontend origin. The test bundle contains only
 `TEST_DATABASE_URL` and `SITETRACK_TEST_DISPOSABLE=true`. See `.env.example` for
 placeholders. Percent-encode reserved characters in URL passwords. Do not copy
 real values or private keys into Git, Docker build arguments, or chat.
@@ -142,13 +150,16 @@ private bundle files.
 | `DATABASE_SCHEMA` | Defaults to `sitetrack`; lowercase letters/digits/underscore, maximum 63 characters, starts with a letter |
 | `HOST` | Defaults to `0.0.0.0` |
 | `PORT` | Defaults to `3000`; integer 0–65535 (0 requests an ephemeral test port) |
+| `AUTH_JWT_SECRET` | Required by the API only; private base64url signing material, at least 32 decoded bytes |
+| `AUTH_COOKIE_SECURE` | Defaults true; explicitly false for local HTTP |
+| `AUTH_ALLOWED_ORIGINS` | Exact comma-separated browser origins; defaults to localhost/127.0.0.1 on port 3000 |
 | `TEST_DATABASE_URL` | Required separately for integration; no development fallback |
 | `SITETRACK_TEST_DISPOSABLE` | Must be exactly `true` for test commands |
 
 Database URLs reject query parameters and fragments to prevent connection-option
 overrides; the current native/reviewer paths use local TCP connections. Pool size
 is five, acquisition is bounded to two seconds, connection setup to three seconds,
-and statements/locks to five seconds. Startup has a 30-second deadline and retries
+and statements/locks to five seconds. Database startup has a 30-second deadline and retries
 only retryable probe failures. Migration failures are not automatically retried.
 
 Only the migration command and application startup apply migrations. Database
@@ -184,11 +195,13 @@ Every application response includes a generated `X-Request-Id`; incoming IDs are
 not trusted. Unknown routes return a 404 error body; unexpected handler defects
 return a generic 500. Logs are JSON and include method, status, duration and
 request ID, omitting URLs/query strings, headers, bodies, credentials and raw SQL
-errors. OpenAPI documents the health contracts and declared error bodies; no
-business endpoints exist yet.
+errors. OpenAPI documents the operational and Stage 2 contracts, authentication
+schemes and declared errors. See [Stage 2](docs/STAGE2.md) for browser integration,
+input limits, transaction rules and authenticated curl examples.
 
 SIGINT/SIGTERM closes the listener, allows requests up to ten seconds to drain,
 and releases pooled connections. Graceful signal shutdown exits zero; startup
 configuration/database/migration failure exits nonzero. The initial migration
-creates the project-number sequence; it does not create users or demo business
-data. Later stages add business schema and the explicit small/large seed loaders.
+creates the project-number sequence. Subsequent migrations add Stage 2 business
+tables and the empty singleton company store. No user or demo project is seeded
+automatically; explicit small/large seed loaders arrive in Stage 5.

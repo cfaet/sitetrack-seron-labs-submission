@@ -4,15 +4,17 @@ import { Effect, Layer } from "effect"
 import { HttpRouter } from "effect/http"
 import type { Migrator } from "effect/sql"
 import { databaseHealthLayer, routes } from "./api/routes.js"
+import { applicationRoutes } from "./api/application.js"
+import { AuthSettings, type AuthConfig } from "./config/auth.js"
 import type { AppConfig } from "./config/config.js"
 import { databaseLayer } from "./db/database.js"
 import { initializeDatabase, migrations } from "./db/migrate.js"
 
-export const serverLayer = (config: AppConfig, loader: Migrator.Loader = migrations) => Layer.unwrap(
+export const serverLayer = (config: AppConfig, loader: Migrator.Loader = migrations, auth?: AuthConfig) => Layer.unwrap(
   Effect.gen(function*() {
     yield* initializeDatabase(config, loader)
     // This layer (and therefore its socket) is built only after migrations.
-    return HttpRouter.serve(routes.pipe(Layer.provide(databaseHealthLayer)), {
+    return HttpRouter.serve(auth === undefined ? routes.pipe(Layer.provide(databaseHealthLayer)) : applicationRoutes.pipe(Layer.provide(Layer.succeed(AuthSettings, auth))), {
       disableLogger: true,
       disableListenLog: true
     }).pipe(

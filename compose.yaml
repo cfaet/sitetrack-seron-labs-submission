@@ -20,6 +20,9 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql://sitetrack:sitetrack_demo_only@db:5432/sitetrack
+      # Public local-only signing key, independent of native private credentials.
+      AUTH_JWT_SECRET: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc
+      AUTH_COOKIE_SECURE: "false"
       HOST: 0.0.0.0
       PORT: "3000"
     depends_on:

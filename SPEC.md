@@ -275,6 +275,44 @@ Stage 1 must run with `docker compose up` alone (without a mandatory prior build
 
 **DEC configuration and secrets:** require an explicit redacted `DATABASE_URL`; accept TCP PostgreSQL URLs with explicit host/role/database and no query parameters or fragments. Default `DATABASE_SCHEMA=sitetrack`, `HOST=0.0.0.0`, `PORT=3000`; schema names are restricted lowercase identifiers. Use a five-connection pool with 2-second acquisition, 3-second connect and 5-second statement/lock limits. The database-startup phase has a 30-second deadline; retry only retryable availability probes, never arbitrary migration effects. Construct the HTTP listener only after migrations finish. Bound readiness to 2 seconds and graceful shutdown to 10 seconds. Native credentials stay in separate owner-managed SOPS-encrypted bundles at `secrets/dev.enc.env` and `secrets/test.enc.env` inside the repo-local `secrets/` directory, excluded from Git and the Docker build context and injected by explicit launches. Private keys remain separately managed. Reviewer Compose uses independent public local-only demo credentials and an internal database port; it requires no SOPS, keys or environment-file copy. Preserve volumes on ordinary shutdown. Pin Node/PostgreSQL images and document actual verification separately from implementation claims.
 
+
+**DEC Stage 2 browser sessions and inputs:** return access JWTs only in JSON and
+put rotating refresh credentials only in a host-only HttpOnly `sitetrack_refresh`
+cookie, SameSite=Lax, path `/api/v1/auth`, with expiry bounded by idle/absolute
+session deadlines. `AUTH_JWT_SECRET` is required by the API, redacted, canonical
+base64url and at least 32 decoded bytes; no native default. `AUTH_COOKIE_SECURE`
+defaults true, explicitly false for local HTTP Compose. `AUTH_ALLOWED_ORIGINS`
+is an exact comma-separated allowlist, defaulting to localhost/127.0.0.1 origins
+on port 3000. Credentialed CORS and a required `X-CSRF-Protection: 1` header on
+all JSON auth POSTs protect the cookie flows; any supplied Origin must be trusted.
+Support same-site browser deployments and cookie-jar curl clients. Auth responses
+and own profile, including errors, use no-store. Logout is Bearer-authenticated
+and revokes that session; clients refresh expired access tokens first.
+
+**DEC Stage 2 security implementation:** use the installed Effect JWT API with
+HS256, issuer `sitetrack`, audience `sitetrack-api`, typ `at+jwt`, required identity,
+session, issued/expiry/token-ID claims and access purpose; bound tokens to 8 KiB.
+Store only SHA-256 refresh hashes. Serialize rotation/logout by session-row locks;
+old credentials fail without revoking or clearing a winning rotation. Use Effect
+Argon2id on the pinned Node runtime: 64 MiB, three passes, one lane, random 16-byte
+salt and 32-byte result, versioned storage and constant-time comparison. Bound
+password work to two active plus eight waiting. Throttle login globally at
+120/minute and per peer IP at 20/five minutes; registration at 30/minute globally
+and five/minute per IP. Global admission precedes per-IP state; ignore forwarded
+IP headers. Limits are process-local, return 429/Retry-After and reset on restart.
+
+**DEC Stage 2 boundaries:** normalize email by trim/lowercase and trim names;
+preserve passwords exactly, length 15–128 Unicode code points. Limit display names
+to 120 UTF-16 code units, project names to 200, emails to 254, JSON bodies to
+16 KiB and page numbers to 1,000,000. Unknown fields fail. Add new migrations
+0002–0004 without changing migration 0001. Create project/first admin/empty store
+atomically and provision the singleton company store through migration. Project
+writes lock session, project, then invitation as needed and recheck access after
+project locking. Soft deletion withdraws pending invitations. Stage 2 project
+projections include identity/name/dates/admin flag/member count; task summaries,
+has-late and task-based sorts await Stage 3. Company-store projections and ACL-03
+await Stage 4. This staging does not weaken final screen/deletion requirements.
+
 Fabrizio is project lead and reviews the resulting architecture, domain behavior and code. Agents may implement every module, including pure task-state rules and graph algorithms. Agree exported contracts before parallel work. Domain code uses validated immutable inputs and explicit `today`; failures are explicit values, with no hidden I/O.
 
 Agent tasks must state scope, owned paths, inputs/contracts, relevant acceptance IDs and verification. Parallelize independent work after shared contracts/schema are agreed. One integrator coordinates migrations, transaction boundaries and final merges. Keep meaningful incremental commits and report completed work and verification concisely.
