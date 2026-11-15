@@ -19,27 +19,38 @@ export interface AppConfig {
   readonly port: number
 }
 
-export const readConfig = Effect.fn("readConfig")(function*(env: Readonly<Record<string, string | undefined>>) {
+export const readConfig = Effect.fn("readConfig")(function* (env: Readonly<Record<string, string | undefined>>) {
   const settings = yield* Schema.decodeUnknownEffect(Settings)({
     databaseUrl: env.DATABASE_URL,
     schema: env.DATABASE_SCHEMA ?? "sitetrack",
     host: env.HOST ?? "0.0.0.0",
     port: env.PORT ?? "3000"
-  }).pipe(Effect.mapError(() => new ConfigurationError({
-    message: "Invalid configuration: check DATABASE_URL, DATABASE_SCHEMA, HOST and PORT."
-  })))
+  }).pipe(
+    Effect.mapError(
+      () =>
+        new ConfigurationError({
+          message: "Invalid configuration: check DATABASE_URL, DATABASE_SCHEMA, HOST and PORT."
+        })
+    )
+  )
   yield* Effect.try({
     try: () => {
       const url = new URL(settings.databaseUrl)
-      if (!(url.protocol === "postgres:" || url.protocol === "postgresql:") ||
-        url.hostname.length === 0 || url.username.length === 0 || url.pathname.length <= 1 ||
-        url.search.length > 0 || url.hash.length > 0) {
+      if (
+        !(url.protocol === "postgres:" || url.protocol === "postgresql:") ||
+        url.hostname.length === 0 ||
+        url.username.length === 0 ||
+        url.pathname.length <= 1 ||
+        url.search.length > 0 ||
+        url.hash.length > 0
+      ) {
         throw new Error("Invalid database URL")
       }
     },
-    catch: () => new ConfigurationError({
-      message: "DATABASE_URL must specify PostgreSQL host, role and database, without query parameters."
-    })
+    catch: () =>
+      new ConfigurationError({
+        message: "DATABASE_URL must specify PostgreSQL host, role and database, without query parameters."
+      })
   })
   return Object.freeze({
     ...settings,
@@ -47,7 +58,9 @@ export const readConfig = Effect.fn("readConfig")(function*(env: Readonly<Record
   }) satisfies AppConfig
 })
 
-export const readTestConfig = Effect.fn("readTestConfig")(function*(env: Readonly<Record<string, string | undefined>>) {
+export const readTestConfig = Effect.fn("readTestConfig")(function* (
+  env: Readonly<Record<string, string | undefined>>
+) {
   if (env.SITETRACK_TEST_DISPOSABLE !== "true" || env.TEST_DATABASE_URL === undefined) {
     return yield* new ConfigurationError({
       message: "Tests require TEST_DATABASE_URL and SITETRACK_TEST_DISPOSABLE=true; no development fallback is allowed."
@@ -55,9 +68,10 @@ export const readTestConfig = Effect.fn("readTestConfig")(function*(env: Readonl
   }
   const config = yield* readConfig({ DATABASE_URL: env.TEST_DATABASE_URL })
   const url = new URL(Redacted.value(config.databaseUrl))
-  if (url.pathname !== "/sitetrack_test" ||
-    !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
-    return yield* new ConfigurationError({ message: "Integration tests require the approved local sitetrack_test database." })
+  if (url.pathname !== "/sitetrack_test" || !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
+    return yield* new ConfigurationError({
+      message: "Integration tests require the approved local sitetrack_test database."
+    })
   }
   return config
 })

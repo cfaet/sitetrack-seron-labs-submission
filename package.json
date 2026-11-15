@@ -10,7 +10,11 @@
     "test": "vitest run --project unit",
     "test:watch": "vitest --watch --project unit",
     "test:integration": "vitest run --project integration",
-    "check": "npm run typecheck && npm test && npm run build",
+    "lint": "effect-tsgo oxlint --type-aware src tests vitest.config.ts",
+    "lint:fix": "effect-tsgo oxlint --type-aware --fix src tests vitest.config.ts",
+    "fmt": "oxfmt src tests vitest.config.ts package.json tsconfig.json tsconfig.build.json .oxlintrc.json .oxfmtrc.json",
+    "fmt:check": "oxfmt --check src tests vitest.config.ts package.json tsconfig.json tsconfig.build.json .oxlintrc.json .oxfmtrc.json",
+    "check": "npm run fmt:check && npm run lint && npm run typecheck && npm test && npm run build",
     "db:check": "tsx src/db/cli.ts check",
     "db:test:check": "tsx src/db/cli.ts test-check",
     "db:migrate": "tsx src/db/cli.ts migrate"
@@ -26,8 +30,12 @@
     "effect": "4.1.2"
   },
   "devDependencies": {
+    "@effect/tsgo": "0.69.0",
     "@effect/vitest": "4.1.2",
     "@types/node": "24.19.2",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
+    "oxlint-tsgolint": "7.0.2006",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.1.0"

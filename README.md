@@ -79,7 +79,11 @@ Run commands from the repository root. `just` or `just --list` lists the recipes
 | `just start` | `npm start` | Run previously built output |
 | `just test` | `npm test` | Run database-free unit/HTTP tests once |
 | `just test-watch` | `npm run test:watch` | Watch database-free tests |
-| `just check` | `npm run check` | Type-check, test, then build; stop on failure |
+| `just lint` | `npm run lint` | Check first-party TypeScript with Effect-aware Oxlint; errors fail, warnings remain visible |
+| `just lint-fix` | `npm run lint:fix` | Apply ordinary lint fixes; review the diff |
+| `just fmt` | `npm run fmt` | Format first-party TypeScript and selected JSON configuration |
+| `just fmt-check` | `npm run fmt:check` | Check formatting without writing files |
+| `just check` | `npm run check` | Check formatting, lint, type-check, test, then build; stop on failure |
 | `just test-integration` | `npm run test:integration` | Run real PostgreSQL tests with explicit test configuration |
 | `just db-check` | `npm run db:check` | Read-only development database inspection |
 | `just db-test-check` | `npm run db:test:check` | Read-only test database inspection |
@@ -112,6 +116,32 @@ Recipes inherit the caller's environment and do not load `.env` files or enter
 Nix automatically. npm entry points use the same environment behavior. There are
 no seed commands yet. Database/Compose commands are explicit and are not part of
 ordinary `check`.
+
+### Linting and formatting
+
+Linting uses `@effect/tsgo` 0.69.0 with Oxlint 1.93.0 and
+`oxlint-tsgolint` 7.0.2006. The npm scripts run `effect-tsgo oxlint --type-aware`
+with the Effect recommended preset over `src/`, `tests/` and the Vitest config.
+The wrapper supplies the Effect-enhanced lint components without patching our
+installed TypeScript compiler. Type-checking and production compilation still
+use the pinned stock `tsc`; installation needs no patch lifecycle hook.
+
+Lint errors fail `lint` and `check`. Warnings remain visible and non-blocking, so
+a passing command does not mean there are no warnings. The initial baseline
+includes warnings about APIs marked unstable, including the intentionally used
+Effect HTTP and SQL APIs. Review warnings separately; `lint-fix` applies only
+ordinary fixes, without suggestion or dangerous fixes, and never runs as part
+of `check`.
+
+Oxfmt 0.78.0 uses `.oxfmtrc.json`: two spaces, double quotes, no trailing commas,
+semicolons omitted where safe, a 120-column width, LF and a final newline.
+Import sorting, package-key sorting and embedded-language formatting are off.
+Both format scripts use the same explicit targets: TypeScript under `src/` and
+`tests/`, the Vitest configuration, package/TypeScript JSON configurations and
+both Ox configuration files. Lockfiles, vendored references, generated output,
+secrets and local tooling directories are excluded. Markdown and YAML are
+outside this formatting pass. `fmt` writes files; `fmt-check` and `check` do not
+apply formatting or lint fixes. `check` still writes normal build output.
 
 ## Native configuration and private secrets
 

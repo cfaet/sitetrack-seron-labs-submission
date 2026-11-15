@@ -6,15 +6,18 @@ import { ErrorBody } from "../../src/api/api.js"
 import { DatabaseUnavailable } from "../../src/db/database.js"
 
 const disposers: Array<() => Promise<void>> = []
-afterEach(async () => { await Promise.all(disposers.splice(0).map((dispose) => dispose())) })
+afterEach(async () => {
+  await Promise.all(disposers.splice(0).map((dispose) => dispose()))
+})
 
 const app = (check: Effect.Effect<void, DatabaseUnavailable> = Effect.void) => {
-  const server = HttpRouter.toWebHandler(routes.pipe(
-    Layer.provide(Layer.succeed(DatabaseHealth, { check })),
-    Layer.provide(HttpServer.layerServices)
-  ), { disableLogger: true })
+  const server = HttpRouter.toWebHandler(
+    routes.pipe(Layer.provide(Layer.succeed(DatabaseHealth, { check })), Layer.provide(HttpServer.layerServices)),
+    { disableLogger: true }
+  )
   disposers.push(server.dispose)
-  return (path: string, headers?: HeadersInit) => server.handler(new Request(`http://localhost${path}`, headers === undefined ? {} : { headers }))
+  return (path: string, headers?: HeadersInit) =>
+    server.handler(new Request(`http://localhost${path}`, headers === undefined ? {} : { headers }))
 }
 
 describe("foundation HTTP contracts", () => {
@@ -27,7 +30,11 @@ describe("foundation HTTP contracts", () => {
 
   it("readiness checks the dependency and emits a fresh request id", async () => {
     let calls = 0
-    const request = app(Effect.sync(() => { calls++ }))
+    const request = app(
+      Effect.sync(() => {
+        calls++
+      })
+    )
     const a = await request("/health/ready", { "X-Request-Id": "untrusted" })
     const b = await request("/health/ready")
     expect(await a.json()).toEqual({ status: "ready" })
@@ -41,7 +48,11 @@ describe("foundation HTTP contracts", () => {
     const response = await app(Effect.fail(new DatabaseUnavailable()))("/health/ready")
     expect(response.status).toBe(503)
     const body = Schema.decodeUnknownSync(ErrorBody)(await response.json())
-    expect(body).toEqual({ code: "DATABASE_UNAVAILABLE", message: "Database is unavailable.", requestId: response.headers.get("x-request-id") })
+    expect(body).toEqual({
+      code: "DATABASE_UNAVAILABLE",
+      message: "Database is unavailable.",
+      requestId: response.headers.get("x-request-id")
+    })
   })
 
   it("bounds readiness when the dependency hangs", async () => {
@@ -57,7 +68,11 @@ describe("foundation HTTP contracts", () => {
     expect(await response.text()).not.toMatch(/private|SELECT/)
     const missing = await app()("/absent?password=private")
     expect(missing.status).toBe(404)
-    expect(await missing.json()).toEqual({ code: "NOT_FOUND", message: "Resource not found.", requestId: missing.headers.get("x-request-id") })
+    expect(await missing.json()).toEqual({
+      code: "NOT_FOUND",
+      message: "Resource not found.",
+      requestId: missing.headers.get("x-request-id")
+    })
   })
 
   it("serves generated contracts and bundled docs", async () => {

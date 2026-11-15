@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
-export default Effect.gen(function*() {
+export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   yield* sql`CREATE TABLE projects (
     id uuid PRIMARY KEY, project_number bigint NOT NULL UNIQUE DEFAULT nextval('project_number_seq'),

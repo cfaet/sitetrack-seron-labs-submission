@@ -28,7 +28,23 @@ test:
 test-watch:
     npm run test:watch
 
-# Type-check, test, then build; stop at the first failure.
+# Check first-party code with Effect-aware linting; warnings are non-blocking.
+lint:
+    npm run lint
+
+# Apply ordinary lint fixes; review the resulting diff.
+lint-fix:
+    npm run lint:fix
+
+# Format first-party TypeScript and selected JSON configuration.
+fmt:
+    npm run fmt
+
+# Check formatting without writing files.
+fmt-check:
+    npm run fmt:check
+
+# Check formatting, lint, type-check, test, then build; stop on failure.
 check:
     npm run check
 

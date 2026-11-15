@@ -13,28 +13,38 @@ export class StartupError extends Data.TaggedError("StartupError")<{
   readonly message: string
 }> {}
 
-export const migrations = Migrator.fromRecord({ "0001_project_number": projectNumber, "0002_identity": identity, "0003_projects": projects, "0004_invitations": invitations })
+export const migrations = Migrator.fromRecord({
+  "0001_project_number": projectNumber,
+  "0002_identity": identity,
+  "0003_projects": projects,
+  "0004_invitations": invitations
+})
 
-export const migrate = Effect.fn("migrate")(function*(config: AppConfig, loader: Migrator.Loader = migrations) {
+export const migrate = Effect.fn("migrate")(function* (config: AppConfig, loader: Migrator.Loader = migrations) {
   const sql = yield* SqlClient.SqlClient
   // Cross-process serialization also covers initial schema/ledger creation.
-  yield* sql.withTransaction(Effect.gen(function*() {
-    yield* sql`SELECT pg_advisory_xact_lock(hashtextextended(${`sitetrack:migrations:${config.schema}`}, 0))`
-    yield* sql`CREATE SCHEMA IF NOT EXISTS ${sql(config.schema)}`
-    yield* PgMigrator.run({ loader }).pipe(Effect.provide(NodeServices.layer))
-  }))
+  yield* sql.withTransaction(
+    Effect.gen(function* () {
+      yield* sql`SELECT pg_advisory_xact_lock(hashtextextended(${`sitetrack:migrations:${config.schema}`}, 0))`
+      yield* sql`CREATE SCHEMA IF NOT EXISTS ${sql(config.schema)}`
+      yield* PgMigrator.run({ loader }).pipe(Effect.provide(NodeServices.layer))
+    })
+  )
 })
 
 export const initializeDatabase = Effect.fn("initializeDatabase")(
-  (config: AppConfig, loader: Migrator.Loader = migrations) => Effect.gen(function*() {
-    // Retry only availability probes. Migrations execute once, transactionally.
-    yield* queryProbe.pipe(Effect.retry({
-      schedule: Schedule.spaced("250 millis"),
-      while: (error) => SqlError.isSqlError(error) && error.isRetryable
-    }))
-    yield* migrate(config, loader)
-  }).pipe(
-    Effect.timeout("30 seconds"),
-    Effect.mapError(() => new StartupError({ message: "Database startup failed or exceeded 30 seconds." }))
-  )
+  (config: AppConfig, loader: Migrator.Loader = migrations) =>
+    Effect.gen(function* () {
+      // Retry only availability probes. Migrations execute once, transactionally.
+      yield* queryProbe.pipe(
+        Effect.retry({
+          schedule: Schedule.spaced("250 millis"),
+          while: (error) => SqlError.isSqlError(error) && error.isRetryable
+        })
+      )
+      yield* migrate(config, loader)
+    }).pipe(
+      Effect.timeout("30 seconds"),
+      Effect.mapError(() => new StartupError({ message: "Database startup failed or exceeded 30 seconds." }))
+    )
 )

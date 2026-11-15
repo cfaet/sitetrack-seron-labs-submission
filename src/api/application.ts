@@ -16,6 +16,14 @@ export const services = Layer.mergeAll(Projects.layer, Teams.layer).pipe(
   Layer.provideMerge(Database.layer)
 )
 export const applicationRoutes = Layer.mergeAll(
-  HttpApiBuilder.layer(Api, { openapiPath: "/openapi.json" }).pipe(Layer.provide(Layer.mergeAll(HealthHandlers, featureHandlers))),
-  HttpApiSwagger.layer(Api, { path: "/docs" }), NotFound
-).pipe(Layer.provide(browserMiddleware.layer), Layer.provide(RequestMiddleware.layer), HttpRouter.provideRequest(Layer.mergeAll(services, Layer.effect(AuthSettings, AuthSettings))), Layer.provide(Layer.mergeAll(services, databaseHealthLayer)))
+  HttpApiBuilder.layer(Api, { openapiPath: "/openapi.json" }).pipe(
+    Layer.provide(Layer.mergeAll(HealthHandlers, featureHandlers))
+  ),
+  HttpApiSwagger.layer(Api, { path: "/docs" }),
+  NotFound
+).pipe(
+  Layer.provide(browserMiddleware.layer),
+  Layer.provide(RequestMiddleware.layer),
+  HttpRouter.provideRequest(Layer.mergeAll(services, Layer.effect(AuthSettings, AuthSettings))),
+  Layer.provide(Layer.mergeAll(services, databaseHealthLayer))
+)

@@ -15,9 +15,13 @@ describe("explicit configuration", () => {
   })
 
   it.each([
-    {}, { DATABASE_URL: "invalid" }, { DATABASE_URL: "https://user:secret@localhost/db" },
-    { DATABASE_URL: url, PORT: "1.5" }, { DATABASE_URL: url, PORT: "65536" },
-    { DATABASE_URL: url, PORT: "-1" }, { DATABASE_URL: url, DATABASE_SCHEMA: "public;DROP" },
+    {},
+    { DATABASE_URL: "invalid" },
+    { DATABASE_URL: "https://user:secret@localhost/db" },
+    { DATABASE_URL: url, PORT: "1.5" },
+    { DATABASE_URL: url, PORT: "65536" },
+    { DATABASE_URL: url, PORT: "-1" },
+    { DATABASE_URL: url, DATABASE_SCHEMA: "public;DROP" },
     { DATABASE_URL: `${url}?options=-csearch_path=public` }
   ])("rejects invalid input without exposing values", async (env) => {
     const error = await Effect.runPromise(readConfig(env).pipe(Effect.flip))
@@ -27,7 +31,9 @@ describe("explicit configuration", () => {
   })
 
   it("never falls back from test to development configuration", async () => {
-    await expect(Effect.runPromise(readTestConfig({ DATABASE_URL: url, SITETRACK_TEST_DISPOSABLE: "true" }))).rejects.toThrow()
+    await expect(
+      Effect.runPromise(readTestConfig({ DATABASE_URL: url, SITETRACK_TEST_DISPOSABLE: "true" }))
+    ).rejects.toThrow()
   })
 
   it.each([
@@ -39,7 +45,9 @@ describe("explicit configuration", () => {
   })
 
   it("accepts only explicit local disposable test configuration", async () => {
-    const config = await Effect.runPromise(readTestConfig({ TEST_DATABASE_URL: testUrl, SITETRACK_TEST_DISPOSABLE: "true" }))
+    const config = await Effect.runPromise(
+      readTestConfig({ TEST_DATABASE_URL: testUrl, SITETRACK_TEST_DISPOSABLE: "true" })
+    )
     expect(Redacted.value(config.databaseUrl)).toBe(testUrl)
   })
 })

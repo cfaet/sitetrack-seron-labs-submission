@@ -22,7 +22,9 @@ export class HealthApi extends HttpApi.make("SiteTrack").add(
 ) {}
 
 export class Api extends HealthApi.add(Accounts, Identity, ProjectsApi, TeamsApi)
-  .annotate(OpenApi.Description, `SiteTrack is a JSON HTTP API for browsers, HTTP libraries, mobile apps, backend services and curl. It does not require a browser.
+  .annotate(
+    OpenApi.Description,
+    `SiteTrack is a JSON HTTP API for browsers, HTTP libraries, mobile apps, backend services and curl. It does not require a browser.
 
 ## Authentication workflow
 
@@ -35,6 +37,7 @@ export class Api extends HealthApi.add(Accounts, Identity, ProjectsApi, TeamsApi
 
 Every auth POST requires application/json and X-CSRF-Protection: 1, including non-browser clients. Browsers should hold access tokens in memory and use credentials: "include" for cookie flows. HTTP libraries, mobile apps and backend services must enable a cookie jar or explicitly process Set-Cookie and send applicable Cookie name/value pairs; curl uses -c and -b. HttpOnly limits browser JavaScript access, not use by other HTTP clients.
 
-CORS is enforced by browsers. The server also checks any supplied Origin on auth POSTs against AUTH_ALLOWED_ORIGINS; non-browser clients may omit Origin. Cross-origin browser clients need an explicitly allowed origin and credential support. The refresh cookie is host-only, HttpOnly, SameSite=Lax and scoped to /api/v1/auth; Secure is enabled by default and explicitly disabled for local HTTP Compose. Browser hosting assumes the frontend and API are on the same site. Authentication and profile responses use Cache-Control: no-store.`)
+CORS is enforced by browsers. The server also checks any supplied Origin on auth POSTs against AUTH_ALLOWED_ORIGINS; non-browser clients may omit Origin. Cross-origin browser clients need an explicitly allowed origin and credential support. The refresh cookie is host-only, HttpOnly, SameSite=Lax and scoped to /api/v1/auth; Secure is enabled by default and explicitly disabled for local HTTP Compose. Browser hosting assumes the frontend and API are on the same site. Authentication and profile responses use Cache-Control: no-store.`
+  )
   .annotate(HttpApi.QueryParseOptions, { onExcessProperty: "error" })
   .annotate(HttpApi.PayloadParseOptions, { onExcessProperty: "error" }) {}
