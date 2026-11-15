@@ -7,11 +7,19 @@ import { Auth } from "../services/auth.js"
 import { Projects } from "../services/projects.js"
 import { Teams } from "../services/teams.js"
 import { Tasks } from "../services/tasks.js"
+import { Inventory } from "../services/inventory.js"
+import { Deliveries } from "../services/deliveries.js"
 import { Passwords, Tokens, Throttle } from "../services/security.js"
 import { Api } from "./api.js"
 import { featureHandlers, browserMiddleware } from "./features.js"
 import { HealthHandlers, NotFound, RequestMiddleware, databaseHealthLayer } from "./routes.js"
-export const services = Layer.mergeAll(Projects.layer, Teams.layer, Tasks.layer).pipe(
+export const services = Layer.mergeAll(
+  Projects.layer,
+  Teams.layer,
+  Tasks.layer,
+  Inventory.layer,
+  Deliveries.layer
+).pipe(
   Layer.provideMerge(Auth.layer),
   Layer.provideMerge(Layer.mergeAll(Passwords.layer, Tokens.layer, Throttle.layer)),
   Layer.provideMerge(Database.layer)

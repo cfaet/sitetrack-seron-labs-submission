@@ -4,15 +4,17 @@ Construction project and materials-tracking backend, using TypeScript, Effect 4,
 Node.js, and PostgreSQL. See [SPEC.md](SPEC.md) for the implementation baseline
 and staged acceptance criteria.
 
-The foundation and Stages 2–3 implement operational HTTP, PostgreSQL/migrations,
+The foundation and Stages 2–4 implement operational HTTP, PostgreSQL/migrations,
 accounts and browser sessions, projects, memberships, invitations, notifications,
-tasks, dependency graphs and project task summaries.
+tasks, dependency graphs, project task summaries, materials, stock and deliveries.
 Any HTTP client can use the API. See [Stage 2 contracts and curl examples](docs/STAGE2.md)
 and [non-browser client guidance](docs/STAGE2.md#non-browser-clients) for Bearer tokens,
 cookie jars and refresh/logout behavior. The generated OpenAPI/Swagger includes
 the same authentication workflow. See [Stage 3 tasks and graphs](docs/STAGE3.md)
-for task actions, relationship pagination, filters and company dates. Inventory
-and large-scale data loading come in later stages.
+for task actions, relationship pagination, filters and company dates. See
+[Stage 4 materials and deliveries](docs/STAGE4.md) for exact quantities, stock
+movement, permissions and idempotent retries. Large-scale data loading and
+resource-budget benchmarking remain Stage 5.
 
 ## Reviewer startup
 
@@ -231,13 +233,15 @@ Every application response includes a generated `X-Request-Id`; incoming IDs are
 not trusted. Unknown routes return a 404 error body; unexpected handler defects
 return a generic 500. Logs are JSON and include method, status, duration and
 request ID, omitting URLs/query strings, headers, bodies, credentials and raw SQL
-errors. OpenAPI documents the operational and Stage 2 contracts, authentication
-schemes and declared errors. See [Stage 2](docs/STAGE2.md) for browser integration,
-input limits, transaction rules and authenticated curl examples.
+errors. OpenAPI documents operational, authentication, project/task and inventory
+contracts with declared errors. See [Stage 2](docs/STAGE2.md) for browser integration,
+[Stage 3](docs/STAGE3.md) for tasks and [Stage 4](docs/STAGE4.md) for exact stock,
+deliveries, transaction rules and idempotent curl examples.
 
 SIGINT/SIGTERM closes the listener, allows requests up to ten seconds to drain,
 and releases pooled connections. Graceful signal shutdown exits zero; startup
 configuration/database/migration failure exits nonzero. The initial migration
-creates the project-number sequence. Subsequent migrations add Stage 2 business
-tables and the empty singleton company store. No user or demo project is seeded
-automatically; explicit small/large seed loaders arrive in Stage 5.
+creates the project-number sequence. Subsequent migrations add identity/access,
+tasks and inventory tables and the empty singleton company store. No user or demo
+project is seeded automatically; explicit small/large seed loaders arrive in
+Stage 5.

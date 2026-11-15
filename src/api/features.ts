@@ -1,8 +1,8 @@
-import { ByteSize, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
-import { HttpIncomingMessage, HttpRouter, HttpMiddleware, HttpServerRequest, HttpServerResponse } from "effect/http"
+import { Duration, Effect, Layer, Option, Redacted } from "effect"
+import { HttpRouter, HttpMiddleware, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
 import { AuthSettings } from "../config/auth.js"
-import { AppError, forbidden, invalid } from "../domain/errors.js"
+import { AppError, forbidden } from "../domain/errors.js"
 import * as Model from "../domain/models.js"
 import { Auth } from "../services/auth.js"
 import { Projects } from "../services/projects.js"
@@ -12,35 +12,10 @@ import * as TaskModel from "../domain/task-models.js"
 import { Throttle } from "../services/security.js"
 import { Api } from "./api.js"
 import { Authentication, CurrentActor, RefreshCookie, RefreshCredential } from "./contracts.js"
-import { errorResponse, errorResponseFor, jsonResponse } from "./common.js"
-const isJsonObject = (value: Schema.Json): value is Schema.JsonObject =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
-export const readInput = <S extends Schema.Constraint>(schema: S, request: HttpServerRequest.HttpServerRequest) =>
-  Effect.gen(function* () {
-    if (!(request.headers["content-type"] ?? "").match(/^application\/json(?:\s*;|$)/i)) return yield* invalid()
-    const value = yield* request.json.pipe(
-      Effect.provideService(HttpIncomingMessage.MaxBodySize, ByteSize.kibibytes(16)),
-      Effect.mapError((error) =>
-        error.reason._tag === "RequestParseError" && error.reason.reason === "BodyTooLarge"
-          ? new AppError({ status: 413, code: "PAYLOAD_TOO_LARGE", message: "Request body is too large." })
-          : invalid()
-      )
-    )
-    const normalized = isJsonObject(value) ? Object.fromEntries(Object.entries(value)) : value
-    // Input normalization is deliberately limited to non-secret identity fields.
-    if (typeof normalized === "object" && normalized !== null) {
-      if ("email" in normalized && typeof normalized.email === "string")
-        normalized.email = normalized.email.trim().toLowerCase()
-      if ("name" in normalized && typeof normalized.name === "string") normalized.name = normalized.name.trim()
-    }
-    // The generic Encoded constraint is unknown; parsed JSON is not yet validated against the caller's schema.
-    // oxlint-disable-next-line effecttsgo/prefer-typed-schema-decoder
-    return yield* Schema.decodeUnknownEffect(schema)(normalized, { onExcessProperty: "error" }).pipe(
-      Effect.mapError(invalid)
-    )
-  })
-const guarded = <A, E, R>(effect: Effect.Effect<A, E | AppError, R>) =>
-  effect.pipe(Effect.catchIf((error): error is AppError => error instanceof AppError, errorResponse))
+import { errorResponseFor, jsonResponse } from "./common.js"
+import { guarded, readInput } from "./input.js"
+import { InventoryHandlers } from "./inventory.js"
+export { readInput } from "./input.js"
 const csrf = Effect.fn("csrf")(function* (request: HttpServerRequest.HttpServerRequest) {
   const settings = yield* AuthSettings,
     origin = request.headers.origin
@@ -486,7 +461,8 @@ export const featureHandlers = Layer.mergeAll(
   IdentityHandlers,
   ProjectHandlers,
   TeamHandlers,
-  TaskHandlers
+  TaskHandlers,
+  InventoryHandlers
 ).pipe(Layer.provide([AuthenticationLayer, RefreshCookieLayer]))
 export const browserMiddleware = HttpRouter.middleware(
   Effect.gen(function* () {
@@ -494,9 +470,9 @@ export const browserMiddleware = HttpRouter.middleware(
     return HttpMiddleware.cors({
       allowedOrigins: config.origins,
       credentials: true,
-      allowedHeaders: ["Authorization", "Content-Type", "X-CSRF-Protection"],
+      allowedHeaders: ["Authorization", "Content-Type", "X-CSRF-Protection", "Idempotency-Key"],
       exposedHeaders: ["X-Request-Id", "Retry-After"],
-      allowedMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
+      allowedMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     })
   })
 )

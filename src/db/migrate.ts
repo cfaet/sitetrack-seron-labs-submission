@@ -9,6 +9,7 @@ import identity from "./migrations/0002_identity.js"
 import projects from "./migrations/0003_projects.js"
 import invitations from "./migrations/0004_invitations.js"
 import tasks from "./migrations/0005_tasks.js"
+import inventory from "./migrations/0006_inventory.js"
 
 export class StartupError extends Data.TaggedError("StartupError")<{
   readonly message: string
@@ -19,7 +20,8 @@ export const migrations = Migrator.fromRecord({
   "0002_identity": identity,
   "0003_projects": projects,
   "0004_invitations": invitations,
-  "0005_tasks": tasks
+  "0005_tasks": tasks,
+  "0006_inventory": inventory
 })
 
 export const migrate = Effect.fn("migrate")(function* (config: AppConfig, loader: Migrator.Loader = migrations) {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { Clock, Context, Effect, Layer, Schema } from "effect"
 import { Actor, ProjectInput, ProjectPatch, ProjectQuery } from "../domain/models.js"
-import { invalid, notFound } from "../domain/errors.js"
+import { conflict, invalid, notFound } from "../domain/errors.js"
 import { CompanyTime } from "../config/company.js"
 import { readProjects } from "../repositories/projects.js"
 import { Database, execute, rows } from "../repositories/database.js"
@@ -72,6 +72,14 @@ const makeProjects = Effect.gen(function* () {
     (actor: Actor, id: string) =>
       projectTransaction(actor, id, true, (project) =>
         Effect.gen(function* () {
+          const occupied = yield* rows(
+            Schema.Struct({ occupied: Schema.Boolean }),
+            sql`SELECT
+            EXISTS(SELECT 1 FROM stock_balances b JOIN stores s ON s.id=b.store_id WHERE s.project_id=${project.internalId} AND b.quantity>0)
+            OR EXISTS(SELECT 1 FROM deliveries WHERE project_id=${project.internalId} AND status='InTransit') AS occupied`
+          )
+          if (occupied[0]?.occupied)
+            return yield* conflict("PROJECT_NOT_EMPTY", "The project still has stock or in-transit deliveries.")
           const now = new Date(yield* Clock.currentTimeMillis).toISOString()
           yield* sql`UPDATE projects SET deleted_at=${now} WHERE id=${project.internalId}`
           yield* sql`UPDATE invitations SET status='Withdrawn' WHERE project_id=${project.internalId} AND status='Pending'`

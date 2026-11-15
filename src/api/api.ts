@@ -4,6 +4,7 @@ import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api
 export { RequestId, ErrorBody } from "./common.js"
 import { ErrorBody } from "./common.js"
 import { Accounts, Identity, ProjectsApi, TeamsApi, TasksApi } from "./contracts.js"
+import { InventoryApi } from "./inventory-contracts.js"
 
 export const Unavailable = ErrorBody.annotate({ httpApiStatus: 503 })
 const InternalError = ErrorBody.annotate({ httpApiStatus: 500 })
@@ -21,7 +22,7 @@ export class HealthApi extends HttpApi.make("SiteTrack").add(
   )
 ) {}
 
-export class Api extends HealthApi.add(Accounts, Identity, ProjectsApi, TeamsApi, TasksApi)
+export class Api extends HealthApi.add(Accounts, Identity, ProjectsApi, TeamsApi, TasksApi, InventoryApi)
   .annotate(
     OpenApi.Description,
     `SiteTrack is a JSON HTTP API for browsers, HTTP libraries, mobile apps, backend services and curl. It does not require a browser.
