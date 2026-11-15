@@ -13,12 +13,12 @@ describe("Stage 2 pure input rules", () => {
     (value) => expect(isCalendarDate(value)).toBe(false)
   )
   it("counts password Unicode characters without normalizing their value", () => {
-    expect(() => Schema.decodeUnknownSync(Password)("😀".repeat(8))).toThrow()
-    expect(Schema.decodeUnknownSync(Password)("😀".repeat(15))).toBe("😀".repeat(15))
+    expect(() => Schema.decodeSync(Password)("😀".repeat(8))).toThrow()
+    expect(Schema.decodeSync(Password)("😀".repeat(15))).toBe("😀".repeat(15))
   })
   it("rejects inverted ranges and preserves wide project IDs", () => {
     expect(() =>
-      Schema.decodeUnknownSync(ProjectInput)({ name: "Site", startDate: "2026-12-01", endDate: "2026-01-01" })
+      Schema.decodeSync(ProjectInput)({ name: "Site", startDate: "2026-12-01", endDate: "2026-01-01" })
     ).toThrow()
     expect(publicProjectId("1")).toBe("PRJ-0001")
     expect(publicProjectId("10000")).toBe("PRJ-10000")
@@ -75,8 +75,11 @@ describe("real security primitives", () => {
         )
         expect((yield* tokens.verify(expired).pipe(Effect.flip)).status).toBe(401)
       }).pipe(
-        Effect.provide(Tokens.layer),
-        Effect.provide(Layer.succeed(AuthSettings, { secret: Redacted.make(key), secureCookie: true, origins: [] }))
+        Effect.provide(
+          Tokens.layer.pipe(
+            Layer.provide(Layer.succeed(AuthSettings, { secret: Redacted.make(key), secureCookie: true, origins: [] }))
+          )
+        )
       )
     )
   })

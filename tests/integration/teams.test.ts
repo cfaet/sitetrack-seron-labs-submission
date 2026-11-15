@@ -168,7 +168,7 @@ describe("teams, invitations and notifications (INV-01, MEM-01, ACL)", () => {
           request("POST", `/api/v1/invitations/${invitation.id}/accept`, {}, invitee),
           request("POST", `/api/v1/projects/${project.id}/invitations/${invitation.id}/withdraw`, {}, owner)
         ])
-        expect(responses.map((r) => r.status).sort()).toEqual([200, 409])
+        expect(responses.map((r) => r.status).sort((a, b) => a - b)).toEqual([200, 409])
         const outcome = await Effect.runPromise(sql`SELECT status FROM invitations WHERE id=${invitation.id}`)
         const members = await Effect.runPromise(
           sql`SELECT count(*)::int AS count FROM memberships WHERE user_id=${invitee.body.user.id}`
@@ -211,7 +211,7 @@ describe("teams, invitations and notifications (INV-01, MEM-01, ACL)", () => {
             request("PATCH", `/api/v1/projects/${project.id}/members/${actor.body.user.id}`, { isAdmin: false }, actor)
           )
         )
-        expect(responses.map((r) => r.status).sort()).toEqual([200, 409])
+        expect(responses.map((r) => r.status).sort((a, b) => a - b)).toEqual([200, 409])
         expect(await Effect.runPromise(sql`SELECT count(*)::int AS count FROM memberships WHERE is_admin`)).toEqual([
           { count: 1 }
         ])
@@ -242,7 +242,7 @@ describe("teams, invitations and notifications (INV-01, MEM-01, ACL)", () => {
             request("DELETE", `/api/v1/projects/${project.id}/members/${actor.body.user.id}`, undefined, actor)
           )
         )
-        expect(removals.map((r) => r.status).sort()).toEqual([204, 409])
+        expect(removals.map((r) => r.status).sort((a, b) => a - b)).toEqual([204, 409])
         expect(await Effect.runPromise(sql`SELECT count(*)::int AS count FROM memberships WHERE is_admin`)).toEqual([
           { count: 1 }
         ])

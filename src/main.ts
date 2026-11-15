@@ -12,12 +12,12 @@ const main = Effect.gen(function* () {
   const zone = yield* readCompanyZone(process.env)
   return yield* Layer.launch(serverLayer(config, undefined, auth, zone))
 }).pipe(
-  Effect.catchCause((cause) =>
-    Cause.hasInterruptsOnly(cause)
-      ? Effect.failCause(cause)
-      : Effect.logError({ event: "startup_failed", message: "Check configuration and database availability." }).pipe(
-          Effect.andThen(Effect.fail(new StartupError({ message: "Application startup failed." })))
-        )
+  Effect.catchCauseIf(
+    (cause) => !Cause.hasInterruptsOnly(cause),
+    () =>
+      Effect.logError({ event: "startup_failed", message: "Check configuration and database availability." }).pipe(
+        Effect.andThen(Effect.fail(new StartupError({ message: "Application startup failed." })))
+      )
   ),
   Effect.provide(Logger.layer([Logger.consoleJson]))
 )

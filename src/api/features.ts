@@ -13,6 +13,8 @@ import { Throttle } from "../services/security.js"
 import { Api } from "./api.js"
 import { Authentication, CurrentActor, RefreshCookie, RefreshCredential } from "./contracts.js"
 import { errorResponse, errorResponseFor, jsonResponse } from "./common.js"
+const isJsonObject = (value: Schema.Json): value is Schema.JsonObject =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
 export const readInput = <S extends Schema.Constraint>(schema: S, request: HttpServerRequest.HttpServerRequest) =>
   Effect.gen(function* () {
     if (!(request.headers["content-type"] ?? "").match(/^application\/json(?:\s*;|$)/i)) return yield* invalid()
@@ -24,13 +26,15 @@ export const readInput = <S extends Schema.Constraint>(schema: S, request: HttpS
           : invalid()
       )
     )
-    const normalized = typeof value === "object" && value !== null && !Array.isArray(value) ? { ...value } : value
+    const normalized = isJsonObject(value) ? Object.fromEntries(Object.entries(value)) : value
     // Input normalization is deliberately limited to non-secret identity fields.
     if (typeof normalized === "object" && normalized !== null) {
       if ("email" in normalized && typeof normalized.email === "string")
         normalized.email = normalized.email.trim().toLowerCase()
       if ("name" in normalized && typeof normalized.name === "string") normalized.name = normalized.name.trim()
     }
+    // The generic Encoded constraint is unknown; parsed JSON is not yet validated against the caller's schema.
+    // oxlint-disable-next-line effecttsgo/prefer-typed-schema-decoder
     return yield* Schema.decodeUnknownEffect(schema)(normalized, { onExcessProperty: "error" }).pipe(
       Effect.mapError(invalid)
     )

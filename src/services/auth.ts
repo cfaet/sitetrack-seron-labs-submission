@@ -9,8 +9,8 @@ const Session = Schema.Struct({
   id: Schema.String,
   userId: Schema.String,
   refreshHash: Schema.String,
-  idleExpires: Schema.Number,
-  absoluteExpires: Schema.Number,
+  idleExpires: Schema.Finite,
+  absoluteExpires: Schema.Finite,
   revoked: Schema.Boolean
 })
 const digest = (token: string) => createHash("sha256").update(token).digest("hex")
@@ -25,7 +25,7 @@ const makeAuth = Effect.gen(function* () {
       sql`SELECT id::text,name,email,role,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt" FROM users WHERE id=${id}`
     )
     if (!found[0]) return yield* unauthorized()
-    return yield* Schema.decodeUnknownEffect(User)(found[0]).pipe(Effect.orDie)
+    return yield* Schema.decodeEffect(User)(found[0]).pipe(Effect.orDie)
   })
   const session = Effect.fn("Auth.session")(function* (id: string, lock: "share" | "update") {
     const found = yield* rows(
@@ -103,7 +103,7 @@ const makeAuth = Effect.gen(function* () {
   }, execute)
   const refresh = Effect.fn("Auth.refresh")(function* (credential: string) {
     if (!/^[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/.test(credential)) return yield* unauthorized()
-    const id = yield* Schema.decodeUnknownEffect(Schema.String.check(Schema.isUUID()))(credential.slice(0, 36)).pipe(
+    const id = yield* Schema.decodeEffect(Schema.String.check(Schema.isUUID()))(credential.slice(0, 36)).pipe(
       Effect.mapError(unauthorized)
     )
     return yield* sql.withTransaction(

@@ -17,16 +17,14 @@ const main = Effect.gen(function* () {
     yield* Effect.logInfo(yield* inspectDatabase(config))
   }).pipe(Effect.timeout("30 seconds"), Effect.provide(databaseLayer(config)))
 }).pipe(
-  Effect.catchCause((cause) =>
-    Cause.hasInterruptsOnly(cause)
-      ? Effect.failCause(cause)
-      : Effect.fail(
-          new ConfigurationError({
-            message: "Database command failed. Check explicit configuration, credentials and database availability."
-          })
-        ).pipe(
-          Effect.tapError((error) => Effect.logError({ event: "database_command_failed", message: error.message }))
-        )
+  Effect.catchCauseIf(
+    (cause) => !Cause.hasInterruptsOnly(cause),
+    () =>
+      Effect.fail(
+        new ConfigurationError({
+          message: "Database command failed. Check explicit configuration, credentials and database availability."
+        })
+      ).pipe(Effect.tapError((error) => Effect.logError({ event: "database_command_failed", message: error.message })))
   ),
   Effect.provide(Logger.layer([Logger.consoleJson]))
 )

@@ -46,7 +46,10 @@ Access JWTs last 15 minutes. Verification fixes HS256, issuer `sitetrack`,
 audience `sitetrack-api`, `typ=at+jwt`, access-token purpose, user/session IDs,
 issued time, expiry and token ID. JWT input is bounded to 8 KiB. Current user role
 and live session state come from PostgreSQL on every request; role claims are
-not cached in tokens.
+not cached in tokens. Idle and absolute expiry must decode to finite epoch
+milliseconds. Non-finite stored deadlines are invalid database data: access and
+refresh return the generic 500 error without issuing a cookie or rotating the
+refresh credential. Ordinary expired/revoked sessions return 401.
 
 Refresh credentials contain a session UUID and 32 random bytes. Only their
 SHA-256 hash is retained. The cookie is host-only `sitetrack_refresh`, `HttpOnly`,

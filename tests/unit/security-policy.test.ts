@@ -50,8 +50,11 @@ it.effect("checks signed JWT issuer, audience, purpose, required claims and algo
     yield* TestClock.adjust("15 minutes")
     expect((yield* tokens.verify(signed(base)).pipe(Effect.flip)).status).toBe(401)
   }).pipe(
-    Effect.provide(Tokens.layer),
-    Effect.provide(Layer.succeed(AuthSettings, { secret: Redacted.make(secret), secureCookie: true, origins: [] }))
+    Effect.provide(
+      Tokens.layer.pipe(
+        Layer.provide(Layer.succeed(AuthSettings, { secret: Redacted.make(secret), secureCookie: true, origins: [] }))
+      )
+    )
   )
 )
 
@@ -96,6 +99,6 @@ it.effect("admits only two active and eight waiting password derivations", () =>
       const results = yield* Fiber.join(work)
       expect(results.filter(Result.isFailure)).toHaveLength(1)
       expect(maximum).toBe(2)
-    }).pipe(Effect.provide(Passwords.layerWithKdf), Effect.provide(Layer.succeed(Kdf.Kdf, kdf)))
+    }).pipe(Effect.provide(Passwords.layerWithKdf.pipe(Layer.provide(Layer.succeed(Kdf.Kdf, kdf)))))
   })
 )

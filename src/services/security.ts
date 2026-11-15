@@ -45,7 +45,7 @@ const makePasswords = Effect.gen(function* () {
     })
   })
   const verify = Effect.fn("Passwords.verify")(function* (password: string, encoded: string) {
-    const data = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Hash))(encoded).pipe(Effect.orDie)
+    const data = yield* Schema.decodeEffect(Schema.fromJsonString(Hash))(encoded).pipe(Effect.orDie)
     const salt = Buffer.from(data.salt, "base64url"),
       expected = Buffer.from(data.hash, "base64url")
     if (salt.length !== 16 || expected.length !== 32)
@@ -110,7 +110,7 @@ const makeTokens = Effect.gen(function* () {
 export class Tokens extends Context.Service<Tokens, Effect.Success<typeof makeTokens>>()("sitetrack/Tokens") {
   static readonly layer = Layer.effect(Tokens, makeTokens).pipe(Layer.provide(NodeCrypto.layerMac))
 }
-const makeThrottle = Effect.gen(function* () {
+const makeThrottle = Effect.sync(() => {
   const buckets = new Map<string, { count: number; until: number }>()
   const admit = Effect.fn("Throttle.admit")(function* (kind: "login" | "register", ip: string) {
     const now = yield* Clock.currentTimeMillis

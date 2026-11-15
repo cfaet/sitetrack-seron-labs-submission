@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { Deferred, Effect, Fiber, Schema } from "effect"
+import { Data, Deferred, Effect, Fiber, Schema } from "effect"
 import { Migrator, SqlClient } from "effect/sql"
 import { databaseLayer } from "../../src/db/database.js"
 import { initializeDatabase, migrate } from "../../src/db/migrate.js"
@@ -9,6 +9,8 @@ import identity from "../../src/db/migrations/0002_identity.js"
 import projects from "../../src/db/migrations/0003_projects.js"
 import invitations from "../../src/db/migrations/0004_invitations.js"
 import { withTestDatabase } from "./database-fixture.js"
+
+class BrokenMigration extends Data.TaggedError("BrokenMigration")<{ readonly message: string }> {}
 
 describe("PostgreSQL migrations (BOOT-02)", () => {
   it("applies once and preserves issued numbers through new pools", async () => {
@@ -120,7 +122,7 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
             "0001_broken": Effect.gen(function* () {
               const sql = yield* SqlClient.SqlClient
               yield* sql`CREATE TABLE rollback_probe (id integer)`
-              return yield* Effect.fail(new Error("deliberately broken migration"))
+              return yield* new BrokenMigration({ message: "deliberately broken migration" })
             })
           })
           const failure = yield* initializeDatabase(config, loader).pipe(Effect.flip)

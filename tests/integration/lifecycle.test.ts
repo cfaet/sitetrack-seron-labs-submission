@@ -2,13 +2,15 @@ import { spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { once } from "node:events"
 import { describe, expect, it } from "vitest"
-import { Deferred, Effect, Fiber, Layer, Redacted } from "effect"
+import { Data, Deferred, Effect, Fiber, Layer, Redacted } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { Migrator, SqlClient } from "effect/sql"
 import { databaseHealthLayer, routes } from "../../src/api/routes.js"
 import { initializeDatabase } from "../../src/db/migrate.js"
 import { serverLayer } from "../../src/server.js"
 import { withTestDatabase } from "./database-fixture.js"
+
+class BrokenMigration extends Data.TaggedError("BrokenMigration")<{ readonly message: string }> {}
 
 const freePort = async () => {
   const server = createServer()
@@ -77,7 +79,7 @@ describe("real startup and resource lifecycle (BOOT-02)", () => {
       withTestDatabase((config) =>
         Effect.gen(function* () {
           const port = yield* Effect.promise(freePort)
-          const loader = Migrator.fromRecord({ "0001_broken": Effect.fail(new Error("broken")) })
+          const loader = Migrator.fromRecord({ "0001_broken": Effect.fail(new BrokenMigration({ message: "broken" })) })
           const failure = yield* Layer.build(serverLayer({ ...config, port }, loader)).pipe(Effect.flip)
           expect(failure._tag).toBe("StartupError")
           yield* Effect.promise(async () => {

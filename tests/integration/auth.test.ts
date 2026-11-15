@@ -146,6 +146,46 @@ describe("accounts and sessions (AUTH-01/02/03)", () => {
       })
     )
   })
+  it("rejects non-finite session deadlines without rotating refresh credentials", async () => {
+    await Effect.runPromise(
+      withApp(async ({ request, register, sql }) => {
+        const actor = await register("finite-expiry@example.test")
+        const idle = actor.body.refreshExpiresAt,
+          absolute = actor.body.sessionExpiresAt
+        for (const deadlines of [
+          { idle: "-infinity", absolute },
+          { idle, absolute: "infinity" },
+          { idle: "infinity", absolute: "infinity" },
+          { idle: "-infinity", absolute: "-infinity" }
+        ]) {
+          await Effect.runPromise(
+            sql`UPDATE sessions SET idle_expires_at=${deadlines.idle}::timestamptz,absolute_expires_at=${deadlines.absolute}::timestamptz WHERE user_id=${actor.body.user.id}`
+          )
+          for (const response of [
+            await request("GET", "/api/v1/me", undefined, actor),
+            await request("POST", "/api/v1/auth/refresh", {}, actor)
+          ]) {
+            expect(response.status).toBe(500)
+            expect(response.headers.get("set-cookie")).toBeNull()
+            expect(response.headers.get("cache-control")).toBe("no-store")
+            expect(await error(response)).toEqual({
+              code: "INTERNAL_ERROR",
+              message: "Internal server error.",
+              requestId: response.headers.get("x-request-id")
+            })
+          }
+        }
+        await Effect.runPromise(
+          sql`UPDATE sessions SET idle_expires_at=${idle}::timestamptz,absolute_expires_at=${absolute}::timestamptz WHERE user_id=${actor.body.user.id}`
+        )
+        expect((await request("GET", "/api/v1/me", undefined, actor)).status).toBe(200)
+        const refreshed = await request("POST", "/api/v1/auth/refresh", {}, actor)
+        expect(refreshed.status).toBe(200)
+        expect(refreshed.headers.get("set-cookie")).toContain("sitetrack_refresh=")
+        expect((refreshed.headers.get("set-cookie") ?? "").split(";")[0]).not.toBe(actor.cookie)
+      })
+    )
+  })
   it("serializes overlapping registration, refresh and logout requests", async () => {
     await Effect.runPromise(
       withApp(async ({ request, register, sql }) => {
@@ -159,14 +199,14 @@ describe("accounts and sessions (AUTH-01/02/03)", () => {
             })
           )
         )
-        expect(registrations.map((r) => r.status).sort()).toEqual([201, 409])
+        expect(registrations.map((r) => r.status).sort((a, b) => a - b)).toEqual([201, 409])
         const a = await register("races@example.test")
         const sid = a.cookie.split("=")[1]?.slice(0, 36)
         if (!sid) throw new Error("No session cookie")
         const refreshes = await race(sql, sql`SELECT id FROM sessions WHERE id=${sid} FOR UPDATE`, () =>
           [1, 2].map(() => request("POST", "/api/v1/auth/refresh", {}, a))
         )
-        expect(refreshes.map((r) => r.status).sort()).toEqual([200, 401])
+        expect(refreshes.map((r) => r.status).sort((a, b) => a - b)).toEqual([200, 401])
         const winner = refreshes.find((r) => r.status === 200)
         if (!winner) throw new Error("No refresh winner")
         const cookie = (winner.headers.get("set-cookie") ?? "").split(";")[0] ?? ""

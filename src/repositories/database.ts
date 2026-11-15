@@ -7,7 +7,14 @@ export class Database extends Context.Service<Database, SqlClient.SqlClient>()("
 export const rows = <S extends Schema.Constraint>(
   schema: S,
   query: Effect.Effect<ReadonlyArray<unknown>, SqlError.SqlError>
-) => query.pipe(Effect.flatMap((data) => Schema.decodeUnknownEffect(Schema.Array(schema))(data).pipe(Effect.orDie)))
+) =>
+  query.pipe(
+    Effect.flatMap((data) =>
+      // The generic Encoded constraint is unknown; external database rows still need validation.
+      // oxlint-disable-next-line effecttsgo/prefer-typed-schema-decoder
+      Schema.decodeUnknownEffect(Schema.Array(schema))(data).pipe(Effect.orDie)
+    )
+  )
 export const execute = <A, E, R>(effect: Effect.Effect<A, E | SqlError.SqlError, R>) =>
   effect.pipe(
     Effect.catchIf(SqlError.isSqlError, (error) => {
