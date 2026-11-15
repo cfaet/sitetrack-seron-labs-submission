@@ -14,6 +14,7 @@
   ],
   "rules": {
     "effecttsgo/floating-effect": "error",
-    "effecttsgo/floating-effect-in-vitest": "error"
+    "effecttsgo/floating-effect-in-vitest": "error",
+    "effecttsgo/unstable-api-usage": "off"
   }
 }

@@ -127,11 +127,14 @@ installed TypeScript compiler. Type-checking and production compilation still
 use the pinned stock `tsc`; installation needs no patch lifecycle hook.
 
 Lint errors fail `lint` and `check`. Warnings remain visible and non-blocking, so
-a passing command does not mean there are no warnings. The initial baseline
-includes warnings about APIs marked unstable, including the intentionally used
-Effect HTTP and SQL APIs. Review warnings separately; `lint-fix` applies only
-ordinary fixes, without suggestion or dangerous fixes, and never runs as part
-of `check`.
+a passing command does not mean there are no warnings. We intentionally depend
+on Effect APIs marked unstable, including HTTP, SQL and crypto, and disable only
+`effecttsgo/unstable-api-usage` project-wide to avoid repeated stability notices.
+This accepts their compatibility risk: keep exact dependency pins and review
+upstream changes and run the relevant tests when upgrading. Experimental-API
+warnings and all other configured diagnostics retain their existing severities.
+Review remaining warnings separately; `lint-fix` applies only ordinary fixes,
+without suggestion or dangerous fixes, and never runs as part of `check`.
 
 Oxfmt 0.78.0 uses `.oxfmtrc.json`: two spaces, double quotes, no trailing commas,
 semicolons omitted where safe, a 120-column width, LF and a final newline.
