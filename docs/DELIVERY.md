@@ -28,8 +28,9 @@ assertions, ended with `workflow_passed`, and revoked all created sessions.
 No unexpected 5xx response or workflow failure was recorded. Local logs are
 `.scale-results/phase3-compose.log` and `.scale-results/phase3-workflows.log`.
 This verifies the working-tree Docker workflow. The exact-commit rehearsal and
-final review below are also complete; only delivery-documentation commit and
-repository sharing remain for the owner.
+final review below are also complete. Final documentation was committed in
+`6567d277`; README, authorship and license cleanup followed in `fa4413b67`.
+Repository sharing remains for the owner.
 
 The source security review completed for all 61 files under `src/` at
 `45d57f351`, using an independent baseline auditor, independent architecture
@@ -180,14 +181,24 @@ limitations are documented. No unresolved correctness/security finding was
 established by this review. Final full mixed-workload performance qualification
 is deferred, with earlier errors and missed tuning targets disclosed in Stage 5.
 
-The owner still needs to review/commit the final documentation, prepare repository
-visibility/access and send its link. No commit, push, publication or message is
-performed by this review. Future changes to application code require verification
-appropriate to those changes; this evidence is tied to the revision above.
+The final documentation and README/authorship/license cleanup are committed
+through `fa4413b67`. The owner still needs to commit this scan-result update,
+prepare repository visibility/access and send its link. No commit, push,
+publication or message is performed by this review. Future changes to application
+code require verification appropriate to those changes; application evidence
+remains tied to `45d57f351`.
 
-The owner also requested a final TruffleHog secret check. It is pending, separate
-from the completed scoped source audit. Run it against the committed deliverable
-with live credential verification and update checks disabled, and retain only
-sanitized detector/location metadata. A bare Git copy avoids untracked private
-SOPS files; vendored `repos/` reference material is excluded. Candidates require
-local triage and do not by themselves establish live credential exposure.
+TruffleHog 3.95.5 completed against committed history at `fa4413b67`, separately
+from the scoped source audit. Live credential verification and update checks were
+disabled. The scanner exited 183 for 23 candidates; redaction and report writing
+both exited zero, with no malformed output lines. Static triage classified four
+matches as public Compose demonstration credentials, two as deliberately invalid
+configuration-test URLs, and seventeen as upstream Effect tests, examples and
+benchmark references. None of the reviewed candidates established a private
+credential leak; this is not a zero-finding scanner result.
+
+The scan used a temporary bare Git copy and retained only sanitized
+detector/location metadata under ignored `.scale-results/trufflehog/`.
+Untracked private SOPS files were outside the scan. The `repos/**` exclusion
+filtered current vendored paths, but original paths in the imported Effect
+subtree history were still scanned, explaining the seventeen upstream matches.
