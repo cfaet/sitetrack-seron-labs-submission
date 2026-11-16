@@ -32,9 +32,15 @@
     "bench:status": "tsx src/scale/host.ts status",
     "bench:report": "tsx src/scale/host.ts report"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "construction",
+    "project-management",
+    "inventory",
+    "effect",
+    "postgresql"
+  ],
+  "author": "Fabrizio Paravecino",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "private": true,
   "dependencies": {

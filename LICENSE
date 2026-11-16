@@ -1,0 +1,74 @@
+Copyright (c) 2026 Fabrizio Paravecino.
+All rights reserved.
+
+1. Scope
+
+This license applies to the original source code and documentation
+authored by Fabrizio Paravecino in this repository, except materials
+expressly identified as belonging to third parties.
+
+No ownership of third-party names, trademarks, assignment materials
+or other third-party intellectual property is asserted.
+
+2. Evaluation permission
+
+Seron Labs and its personnel or contractors directly involved in
+evaluating this submission may copy, build, execute, test, inspect
+and temporarily modify the software solely for recruitment and
+technical evaluation.
+
+Copies may be shared internally with those reviewers only as
+necessary for that evaluation. Copyright and licensing notices
+must be preserved.
+
+This permission is non-exclusive, royalty-free and does not
+transfer ownership of the software.
+
+3. Reserved rights
+
+Except for the evaluation permission above, applicable legal
+exceptions, or separate written authorization from the copyright
+holder, no permission is granted to:
+
+- Use the software in production or to operate a business service.
+- Incorporate the software or modified versions into another product.
+- Sell, sublicense, publish or redistribute the software.
+- Distribute modifications or derivative works.
+
+All rights not expressly granted are reserved.
+
+4. Third-party materials
+
+Third-party dependencies and vendored source code, including
+repos/effect/, remain subject to their respective licenses and
+copyright notices. This license does not restrict permissions
+granted by those licenses.
+
+Seron Labs' assignment document and any transcription of it are
+excluded from this license. Their inclusion does not assert
+ownership of those materials or grant permission to redistribute
+them.
+
+5. Separate permissions and hosting platforms
+
+Any additional permission to use the software must be expressly
+granted in writing by Fabrizio Paravecino and identify the software,
+permitted use and intended recipient.
+
+Providing repository access, submitting the software for evaluation,
+or discussing recruitment does not by itself expand the permissions
+granted by this license.
+
+Use of a hosting platform remains subject to that platform's
+applicable terms. This clause grants no additional permission
+to use the software.
+
+6. Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT
+HOLDER SHALL NOT BE LIABLE FOR CLAIMS, DAMAGES OR OTHER LIABILITY
+ARISING FROM THE SOFTWARE OR ITS USE.

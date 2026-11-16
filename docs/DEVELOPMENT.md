@@ -1,0 +1,223 @@
+# Development guide
+
+This guide covers native development, configuration and local checks. For the
+self-contained Docker startup, see the [README](../README.md#quick-start).
+
+## Local development
+
+Use Node.js 24 and npm, with PostgreSQL 16 provisioned separately. The optional
+Nix shell supplies Node, npm, Just, PostgreSQL client tools, curl, SOPS and Docker
+clients; it does not start PostgreSQL or a Docker daemon. `flake.lock` pins the
+development environment.
+
+```sh
+nix develop
+npm ci
+```
+
+Without Nix, install Node.js 24 and npm directly, then run `npm ci`. Just is
+optional; every recipe wraps an npm script or an explicit Compose command.
+See [foundation notes](STAGE1.md) for recorded tool versions and Docker rehearsal
+history.
+
+## Commands
+
+Run commands from the repository root. `just` or `just --list` lists the recipes.
+
+| Just | Equivalent npm command | Behavior |
+| --- | --- | --- |
+| `just dev` | `npm run dev` | Watch application source |
+| `just typecheck` | `npm run typecheck` | Check source, tests, and Vitest configuration |
+| `just build` | `npm run build` | Compile application source to `dist/` |
+| `just start` | `npm start` | Run previously built output |
+| `just test` | `npm test` | Run database-free unit/HTTP tests once |
+| `just test-watch` | `npm run test:watch` | Watch database-free tests |
+| `just lint` | `npm run lint` | Check first-party TypeScript with Effect-aware Oxlint; errors fail, warnings remain visible |
+| `just lint-fix` | `npm run lint:fix` | Apply ordinary lint fixes; review the diff |
+| `just fmt` | `npm run fmt` | Format first-party TypeScript and selected JSON configuration |
+| `just fmt-check` | `npm run fmt:check` | Check formatting without writing files |
+| `just check` | `npm run check` | Check formatting, lint, type-check, test, then build; stop on failure |
+| `just test-integration` | `npm run test:integration` | Run real PostgreSQL tests with explicit test configuration |
+| `just db-check` | `npm run db:check` | Read-only development database inspection |
+| `just db-test-check` | `npm run db:test:check` | Read-only test database inspection |
+| `just db-migrate` | `npm run db:migrate` | Apply pending development migrations explicitly |
+| `just compose-up` | `docker compose up --build` | Build and start reviewer services |
+| `just compose-down` | `docker compose down` | Stop services, preserving volumes |
+| `just compose-logs` | `docker compose logs --follow` | Follow service logs |
+| `just compose-check` | `docker compose config --quiet` | Validate Compose without starting or printing configuration |
+| `just verify-workflows PROJECT` | `npm run verify:workflows -- PROJECT` | Exercise complete HTTP workflows inside an explicitly named `sitetrack-review-*` Compose project; creates demo records |
+
+Build explicitly before starting:
+
+```sh
+just build
+just start
+```
+
+The npm equivalents are `npm run build` followed by `npm start`. Startup requires
+explicit database configuration, waits for PostgreSQL, migrates, then listens.
+`dev`, `test-watch`, service startup and log-follow commands are long-running;
+test and check commands are finite.
+
+Vitest discovers only first-party tests, split into `tests/unit/` and
+`tests/integration/`. Vendored `repos/` sources are excluded. Coverage is scoped
+to `src/` (no coverage provider is installed by this increment). An empty selected
+suite fails deliberately. `check` includes database-free tests; run integration
+tests separately. HTTP unit tests substitute the health dependency and do not
+establish PostgreSQL correctness.
+
+Recipes inherit the caller's environment and do not load `.env` files or enter
+Nix automatically. npm entry points use the same environment behavior. There are
+explicit isolated seed/benchmark commands documented in [Stage 5](STAGE5.md).
+`just bench-focus large` (`npm run bench:focus -- large`) runs a bounded
+ten-client diagnostic workload; the full qualification command is `just bench large`.
+Benchmark reports distinguish first-access, warmup and measured errors and save
+sanitized API/PostgreSQL diagnostics automatically. A failed verdict is reported
+as `BenchmarkFailed`; warmup errors still fail the run. See the Stage 5 guide for
+report fields and capture limits.
+`just bench-integrity-plan large estimate` explains the inventory audit directly;
+use explicit `analyze` to execute it. Its manifest guard does not replace the full
+dataset verification performed by benchmark commands.
+Database/Compose commands are explicit and are not part of ordinary `check`.
+
+### Linting and formatting
+
+Linting uses `@effect/tsgo` 0.69.0 with Oxlint 1.93.0 and
+`oxlint-tsgolint` 7.0.2006. The npm scripts run `effect-tsgo oxlint --type-aware`
+with the Effect recommended preset over `src/`, `tests/` and the Vitest config.
+The wrapper supplies the Effect-enhanced lint components without patching our
+installed TypeScript compiler. Type-checking and production compilation still
+use the pinned stock `tsc`; installation needs no patch lifecycle hook.
+
+Lint errors fail `lint` and `check`. Warnings remain visible and non-blocking, so
+a passing command does not mean there are no warnings. We intentionally depend
+on Effect APIs marked unstable, including HTTP, SQL and crypto, and disable only
+`effecttsgo/unstable-api-usage` project-wide to avoid repeated stability notices.
+This accepts their compatibility risk: keep exact dependency pins and review
+upstream changes and run the relevant tests when upgrading. Experimental-API
+warnings and all other configured diagnostics retain their existing severities.
+Review remaining warnings separately; `lint-fix` applies only ordinary fixes,
+without suggestion or dangerous fixes, and never runs as part of `check`.
+
+Oxfmt 0.78.0 uses `.oxfmtrc.json`: two spaces, double quotes, no trailing commas,
+semicolons omitted where safe, a 120-column width, LF and a final newline.
+Import sorting, package-key sorting and embedded-language formatting are off.
+Both format scripts use the same explicit targets: TypeScript under `src/` and
+`tests/`, the Vitest configuration, package/TypeScript JSON configurations and
+both Ox configuration files. Lockfiles, vendored references, generated output,
+secrets and local tooling directories are excluded. Markdown and YAML are
+outside this formatting pass. `fmt` writes files; `fmt-check` and `check` do not
+apply formatting or lint fixes. `check` still writes normal build output.
+
+## Native configuration and private secrets
+
+Native development uses the NixOS-managed database `sitetrack` and login role
+`sitetrack`. Integration tests use `sitetrack_test` and its matching login role.
+The repository does not provision host services, roles, or authentication rules.
+
+Create separate SOPS-encrypted dotenv bundles in the repo-local `secrets/`
+directory, using your existing recipient/key setup:
+`secrets/dev.enc.env` and `secrets/test.enc.env`. Both Git and the Docker build
+context exclude this directory. Keep private keys separately managed.
+The development bundle contains `DATABASE_URL` and a persistent private
+`AUTH_JWT_SECRET` (base64url, at least 32 random bytes). Add
+`AUTH_COOKIE_SECURE=false` for local HTTP. Browser origins default to the API's
+localhost/127.0.0.1 port 3000 origins; explicitly configure `AUTH_ALLOWED_ORIGINS`
+when using another frontend origin. The test bundle contains only
+`TEST_DATABASE_URL` and `SITETRACK_TEST_DISPOSABLE=true`. See [`.env.example`](../.env.example) for
+placeholders. Percent-encode reserved characters in URL passwords. Do not copy
+real values or private keys into Git, Docker build arguments, or chat.
+
+```sh
+sops exec-env secrets/dev.enc.env 'just dev'
+sops exec-env secrets/dev.enc.env 'just db-check'
+sops exec-env secrets/test.enc.env 'just db-test-check'
+sops exec-env secrets/test.enc.env 'just test-integration'
+```
+
+SOPS decrypts into the launched process environment; no application code depends
+on SOPS and no plaintext file is needed. Any explicit environment provider can
+be used instead. The implementation and database-free checks do not need these
+private bundle files.
+
+| Setting | Behavior |
+| --- | --- |
+| `DATABASE_URL` | Required PostgreSQL TCP URL with explicit host, role and database |
+| `DATABASE_SCHEMA` | Defaults to `sitetrack`; lowercase letters/digits/underscore, maximum 63 characters, starts with a letter |
+| `HOST` | Defaults to `0.0.0.0` |
+| `PORT` | Defaults to `3000`; integer 0–65535 (0 requests an ephemeral test port) |
+| `AUTH_JWT_SECRET` | Required by the API only; private base64url signing material, at least 32 decoded bytes |
+| `AUTH_COOKIE_SECURE` | Defaults true; explicitly false for local HTTP |
+| `AUTH_ALLOWED_ORIGINS` | Exact comma-separated browser origins; defaults to localhost/127.0.0.1 on port 3000 |
+| `COMPANY_TIME_ZONE` | API-only named timezone for task Late flags; defaults to `Asia/Muscat`; invalid values fail before database startup |
+| `TEST_DATABASE_URL` | Required separately for integration; no development fallback |
+| `SITETRACK_TEST_DISPOSABLE` | Must be exactly `true` for test commands |
+
+Database URLs reject query parameters and fragments to prevent connection-option
+overrides; the current native/reviewer paths use local TCP connections. Pool size
+is five, acquisition is bounded to two seconds, connection setup to three seconds,
+and ordinary statements/locks to five seconds. Database startup has a 60-second
+deadline and retries only retryable probe failures. Migration statements receive
+a transaction-local 30-second allowance; after commit or rollback, the connection
+returns to its normal statement limit. The five-second lock limit is unchanged.
+Migration failures are not automatically retried. API health checks allow a
+65-second startup period; the migration CLI allows 70 seconds including its final
+inspection. Read-only database CLI checks retain their 30-second outer deadline.
+
+Startup failures emit `database_startup_failed` with fixed `phase` and `reason`
+fields: availability probe, migration failure or the overall startup deadline.
+Statement/lock timeouts and connection failures are distinguished without logging
+raw database causes, SQL, parameters or connection URLs. Application startup still
+fails nonzero and never listens before migrations complete.
+
+Integration tests allow 90 seconds per test/hook, with explicit longer bounds for
+repeated restart and seed/audit scenarios. Test-owned schema creation/cleanup and
+explicit seed/audit operations get a transaction-local 30-second maintenance
+statement allowance; test HTTP handlers
+keep the normal request pool and limits. Offline scale tools retain their separate
+300-second statement limit. These changes do not raise ordinary API query limits.
+
+The migration command, application startup and explicit seed command apply
+migrations. Database inspection commands never create schema objects. Both test commands require an
+explicit local `sitetrack_test` target and disposal acknowledgement; before test
+DDL/cleanup, the connected database and role are checked again. Each test creates
+a unique schema and removes only that schema after verifying its original OID.
+No development database, public tables, or existing test schemas are reset.
+
+For direct read-only inspection, let `psql` prompt for the password:
+
+```sh
+psql -X -h 127.0.0.1 -U sitetrack_test -d sitetrack_test \
+  -c "SELECT current_database(), current_user, current_setting('server_version');"
+```
+
+## HTTP and lifecycle
+
+```sh
+curl -i http://localhost:3000/health/live
+curl -i http://localhost:3000/health/ready
+curl http://localhost:3000/openapi.json
+```
+
+Liveness returns `200 {"status":"ok"}` without SQL. Readiness returns
+`200 {"status":"ready"}`, or within approximately two seconds a 503 response:
+
+```json
+{"code":"DATABASE_UNAVAILABLE","message":"Database is unavailable.","requestId":"<generated UUID>"}
+```
+
+Every application response includes a generated `X-Request-Id`; incoming IDs are
+not trusted. Unknown routes return a 404 error body; unexpected handler defects
+return a generic 500. Logs are JSON and include method, status, duration and
+request ID, omitting URLs/query strings, headers, bodies, credentials and raw SQL
+errors. OpenAPI documents operational, authentication, project/task and inventory
+contracts with declared errors. See [Stage 2](STAGE2.md) for browser integration,
+[Stage 3](STAGE3.md) for tasks and [Stage 4](STAGE4.md) for exact stock,
+deliveries, transaction rules and idempotent curl examples.
+
+SIGINT/SIGTERM closes the listener, allows requests up to ten seconds to drain,
+and releases pooled connections. Graceful signal shutdown exits zero; startup
+configuration/database/migration failure exits nonzero. The initial migration
+creates the project-number sequence. Subsequent migrations add identity/access,
+tasks and inventory tables and the empty singleton company store. No user or demo
+project is seeded automatically; use the explicit small/large loaders documented in [Stage 5](STAGE5.md).
