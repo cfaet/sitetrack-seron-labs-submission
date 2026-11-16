@@ -374,16 +374,18 @@ After assignment completion, possible production changes include controlled priv
 
 ## 17. Final handoff checklist
 
-- [ ] Source builds, type-checks and passes stated tests.
-- [ ] Docker Compose starts from a fresh checkout with no manual setup.
-- [ ] Full seed is runnable, counts verified and invariant checks recorded.
-- [ ] Every screen in section 11 is supported by documented queries.
-- [ ] Permission and concurrency acceptance cases pass against Postgres.
-- [ ] API examples and OpenAPI match implemented behavior.
-- [ ] README includes setup, versions, demo users, assumptions, architecture, tradeoffs, measured scale results and remaining limitations.
-- [ ] Genuine commit history shows progression; no secrets or private product source copied into submission.
-- [ ] Final independent review findings are resolved or explicitly disclosed.
+- [x] Source builds, type-checks and passes stated tests.
+- [x] Docker Compose starts from a fresh checkout with no manual setup.
+- [x] Full seed is runnable, counts verified and invariant checks recorded.
+- [x] Every screen in section 11 is supported by documented queries.
+- [x] Permission and concurrency acceptance cases pass against Postgres.
+- [x] API examples and OpenAPI match implemented behavior.
+- [x] README includes setup, versions, demo users, assumptions, architecture, tradeoffs, measured scale results and remaining limitations.
+- [x] Genuine commit history shows progression; no secrets or private product source copied into submission.
+- [x] Final independent review findings are resolved or explicitly disclosed.
 - [ ] Repository link is prepared for Fabrizio to send to Sarvesh; do not send it without instruction.
+
+Evidence applies to application revision `45d57f351`: 96 unit tests, 57 real PostgreSQL integration tests, working-tree/clean-checkout/post-restart 95-request HTTP workflows, and owner-run exact-commit lifecycle/persistence verification. The completed independent static security review covered all 61 first-party `src/` files and established no reportable vulnerability; dependency internals, private secrets and production infrastructure were excluded. See docs/DELIVERY.md for traceability and limitations. Full mixed-workload performance qualification remains deferred, with actual results and earlier errors disclosed in docs/STAGE5.md. This checklist does not claim a production deployment audit, external pentest or absence of vulnerabilities.
 
 ## References
 

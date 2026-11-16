@@ -16,7 +16,7 @@ for task actions, relationship pagination, filters and company dates. See
 movement, permissions and idempotent retries. See [Stage 5 datasets and benchmarks](docs/STAGE5.md) for explicit small/full
 seeds, isolated measurement environments and verification results.
 See [delivery verification](docs/DELIVERY.md) for the current passing test baseline,
-complete HTTP workflows and the pending fresh-checkout rehearsal.
+complete HTTP workflows, completed fresh-checkout/lifecycle rehearsal and final review.
 
 ## Reviewer startup
 
@@ -44,8 +44,53 @@ docker compose down
 `down` preserves the named database volume. Subsequent startup applies only
 pending migrations and preserves data and sequence values. There are no reset
 or volume-deletion recipes. See [foundation notes](docs/STAGE1.md) for verification
-evidence and remaining environment checks; Docker execution must be verified
-separately from native PostgreSQL tests.
+historical evidence. The latest [delivery verification](docs/DELIVERY.md) records
+the exact-commit Docker rehearsal separately from native PostgreSQL tests.
+
+## Architecture and tradeoffs
+
+HTTP contracts define validated inputs and OpenAPI responses. Effect application
+services coordinate authentication, authorization, time and transactions; pure
+domain functions decide task/graph and quantity rules; repositories execute
+parameterized PostgreSQL queries. One runtime starts migrations before listening.
+Native and Compose operation use the same application configuration and migrations.
+
+PostgreSQL coordinates concurrent work across connections. Project-row locks
+serialize graph and membership changes; inventory uses ordered row locks and
+atomic balance/movement updates. Quantities use exact decimal strings and bigint
+millionths. These choices favor correctness and simple recovery, with contention
+as an accepted tradeoff. Idempotent retries return the original successful result
+after current authorization; a GET returns current state.
+
+Other deliberate choices are offset pagination with exact totals, a five-connection
+pool, retained soft-deleted history and project graphs loaded within their scope.
+Public registration permits every assignment role, including SuperAdmin; this is
+the requested demo policy. Production would need controlled privileged-role
+provisioning, private deployment secrets, ingress/TLS, shared rate limits and a
+backup/restore plan. Native startup defaults to `0.0.0.0`; Compose publishes only
+host loopback. See [SPEC.md](SPEC.md) for the access matrix and settled assumptions.
+
+## Verification and known limits
+
+Application revision `45d57f351` passed 96 unit tests, 57 real PostgreSQL integration
+tests and 95-request Docker workflows in both the working tree and a clean checkout.
+The clean checkout also passed graceful shutdown, database outage/recovery without
+an API restart, persistent Compose restarts and continued ID allocation. A further
+95-request workflow passed after restart. Formatting, warning-free lint, types and
+production build passed. The final source review found no reportable security
+vulnerability across all 61 first-party `src/` files; dependency internals and
+production infrastructure were outside that static review.
+
+The full assignment-sized dataset was loaded and its counts/invariants verified.
+The latest focused large-data run completed without request errors, but only five
+of thirteen latency targets were met; completion/lateness lists were about
+4.5/5.0 seconds p95 on the constrained HDD laptop. Earlier full mixed-workload
+runs had errors, and a final successful full qualification is not claimed.
+The numerical latency goals are engineering targets; the assignment still asks
+for usable screens at scale. See [Stage 5](docs/STAGE5.md) for measured conditions,
+failed runs and remaining qualification limits. Further tuning, native/cloud
+comparisons and the optional frontend are deferred. No production-hardening or
+vulnerability-absence guarantee follows from these checks.
 
 ## Local development
 

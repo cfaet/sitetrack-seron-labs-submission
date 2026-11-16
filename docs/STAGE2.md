@@ -144,15 +144,17 @@ headers. Bundled Swagger stays at `/docs`.
 
 Collections return `{items,pagination:{page,pageSize,total,totalPages}}`.
 Defaults are page 1 and size 25, maximum size 100 and maximum page 1,000,000.
-Projects support `search`, `sort=name|startDate` and `direction=asc|desc`;
+Projects support `search`, `hasLate=true|false`,
+`sort=name|startDate|completionPercentage|lateCount` and `direction=asc|desc`;
 notifications/invitations are newest first; members sort by name. Immutable IDs
 break ties. Rows and totals share a SQL snapshot and the same access scope,
 including empty/out-of-range pages. Project invitation lists show pending items.
 
 Projects expose `id`, `name`, `startDate`, `endDate`, caller `isAdmin` and
-`memberCount`. IDs use the retained global sequence, including `PRJ-10000` and
-beyond. Task counts/completion/late/blocked projections and their filters/sorts
-are intentionally absent until Stage 3, rather than mock values.
+`memberCount`, plus the implemented Stage 3 `taskCounts`, `completionPercentage`,
+`lateCount` and `blockedCount`. IDs use the retained global sequence, including
+`PRJ-10000` and beyond. See [Stage 3](STAGE3.md#http-contracts) for the summary
+semantics and derived filters/sorts; these fields are real current projections.
 
 Invitation commands return an invitation with `Pending`, `Accepted`, `Rejected`
 or `Withdrawn` status and user/project identifiers. Member PATCH accepts only

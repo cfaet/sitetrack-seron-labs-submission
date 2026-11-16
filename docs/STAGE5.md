@@ -343,8 +343,12 @@ Fabrizio subsequently built/started reviewer project
 95 HTTP workflow requests and schema/business assertions passed. The run ended
 with `workflow_passed` and all created sessions revoked. Local logs are
 `.scale-results/phase3-compose.log` and `.scale-results/phase3-workflows.log`.
-No unexpected 5xx/workflow failure occurred. This is working-tree Docker evidence,
-not the pending exact-commit fresh-checkout/lifecycle rehearsal or final review.
+No unexpected 5xx/workflow failure occurred. The subsequent exact-commit clean
+checkout also passed 95 workflow requests, shutdown/outage/recovery/full-restart
+and persistence checks, then another 95 requests with the next project ID.
+The completed scoped source security review established no reportable findings
+in all 61 first-party source files. See [delivery verification](DELIVERY.md) for
+the exact revision, evidence, review scope and limitations.
 
 Fabrizio runs the longer checks. From the repository's Nix shell, first run:
 
@@ -362,7 +366,7 @@ just check
 The test bundle must identify the approved local disposable `sitetrack_test`
 database and role. These checks create and clean only test-owned schemas; they
 do not reset the development database or retained benchmark dataset. Fresh
-Compose rehearsal and full user-workflow verification follow separately. See
+Compose rehearsal and full user-workflow verification are recorded separately. See
 [delivery verification](DELIVERY.md) for the explicit HTTP workflow command and
 fresh-checkout protocol. The workflow runner is separate from performance tests.
 

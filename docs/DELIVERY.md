@@ -27,8 +27,27 @@ workflow completed all 95 requests with expected statuses and schema/business
 assertions, ended with `workflow_passed`, and revoked all created sessions.
 No unexpected 5xx response or workflow failure was recorded. Local logs are
 `.scale-results/phase3-compose.log` and `.scale-results/phase3-workflows.log`.
-This verifies the working-tree Docker workflow; the exact committed revision's
-fresh-checkout/lifecycle rehearsal and final review remain pending.
+This verifies the working-tree Docker workflow. The exact-commit rehearsal and
+final review below are also complete; only delivery-documentation commit and
+repository sharing remain for the owner.
+
+The source security review completed for all 61 files under `src/` at
+`45d57f351`, using an independent baseline auditor, independent architecture
+mapping, a focused inventory investigator and parent source verification. No
+reportable vulnerability was established. Root deployment/configuration, docs
+and tests supported the review; dependency internals, vendored code, private
+secrets and production infrastructure were excluded. This was a static source
+review, not an external penetration test or guarantee of vulnerability absence.
+The sealed local Codex Security scan is
+`9cf1d500-898e-40d6-9a75-1f19b48b16a3`; its canonical report remains outside Git.
+
+The API contract review reconciled auth/session guidance, schemas and the nine
+feature screen areas in SPEC section 11 with the handlers and tests. A read-only
+inspection of the running generated OpenAPI matched the compiled contracts for
+all 50 required feature operations and their success/authentication/error statuses,
+including DELETE operations returning 204. The Stage 2 guide was corrected to describe the
+implemented task summaries and project filters. No application code changed in
+this final review; the tested application revision remains `45d57f351`.
 
 ## Run the HTTP workflows
 
@@ -124,13 +143,51 @@ Compose restarts; `down` must retain the volume. Confirm the API runs as a non-r
 user, PostgreSQL has no published port, all seven migrations are applied once,
 durability is enabled and logs contain no issued credentials.
 
-This rehearsal is pending. Native integration tests, unit tests with a substituted
-HTTP transport, and the earlier-stage Docker rehearsals do not replace it.
+The owner completed this rehearsal from a clean local clone at
+`45d57f3516957c994a3d9d9576d7f09a2268e199`, project
+`sitetrack-review-20261116142545`, using plain `docker compose up` without copied
+secrets/dependencies/build output or manual migrations. API image:
+`sha256:209e712aea435fba46f7e149cf71f9c0e78eccfbc1f1a5d113c285cee521c9ab`.
+
+| Check | Observed result |
+| --- | --- |
+| Clean-checkout HTTP workflows | All 95 requests and schema/business assertions passed |
+| Graceful API stop | Exit 0; stop command took about one second |
+| Database outage | Readiness 503 in 2.004184s with generic error; liveness 200 |
+| Database recovery | Readiness recovered; API container ID and start timestamp unchanged |
+| API/database/full Compose restarts | Project/task/inventory/ledger/sequence snapshots matched before further writes |
+| Volume and image | Named volume retained across down/up; API image unchanged |
+| Post-restart HTTP workflows | All 95 requests passed; next project was PRJ-0002; sessions revoked |
+| Deployment checks | Non-root API, no PostgreSQL host port, seven migrations and normal durability |
+
+Local evidence is under `.scale-results/phase4/`: `compose.log`, `workflows.log`,
+`lifecycle.log`, `restart-workflows.log`, snapshots and bounded health responses.
+The first lifecycle helper run failed before restarts because its snapshot used
+the API projection name `received_at` as a SQL column. The local helper was
+corrected to stored `initiated_at`/`closed_at`, validated using read-only EXPLAIN,
+and rerun successfully. The earlier error log is retained. No application schema
+or data repair was necessary. Raw evidence and the helper remain local/ignored.
+
+This is a fresh-checkout rehearsal on the owner's existing Docker host, not a
+claim of testing a different operating system or a cloud server.
 
 ## Final delivery gates
 
-Reconcile every required screen and error contract with OpenAPI and examples,
-complete an independent correctness/security review, resolve or disclose findings,
-and update the SPEC checklist only for demonstrated results. Include setup,
-architecture, decisions, demo data, actual scale results and remaining limitations
-in the handoff. Preparing the repository does not publish or send it anywhere.
+The source tests, permission/concurrency acceptance cases, clean-checkout startup,
+HTTP workflows, lifecycle checks and final scoped source review have passing
+evidence. Required setup, API, seed, architecture, decisions, measured results and
+limitations are documented. No unresolved correctness/security finding was
+established by this review. Final full mixed-workload performance qualification
+is deferred, with earlier errors and missed tuning targets disclosed in Stage 5.
+
+The owner still needs to review/commit the final documentation, prepare repository
+visibility/access and send its link. No commit, push, publication or message is
+performed by this review. Future changes to application code require verification
+appropriate to those changes; this evidence is tied to the revision above.
+
+The owner also requested a final TruffleHog secret check. It is pending, separate
+from the completed scoped source audit. Run it against the committed deliverable
+with live credential verification and update checks disabled, and retain only
+sanitized detector/location metadata. A bare Git copy avoids untracked private
+SOPS files; vendored `repos/` reference material is excluded. Candidates require
+local triage and do not by themselves establish live credential exposure.
