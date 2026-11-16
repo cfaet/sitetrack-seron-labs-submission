@@ -13,8 +13,8 @@ cookie jars and refresh/logout behavior. The generated OpenAPI/Swagger includes
 the same authentication workflow. See [Stage 3 tasks and graphs](docs/STAGE3.md)
 for task actions, relationship pagination, filters and company dates. See
 [Stage 4 materials and deliveries](docs/STAGE4.md) for exact quantities, stock
-movement, permissions and idempotent retries. Large-scale data loading and
-resource-budget benchmarking remain Stage 5.
+movement, permissions and idempotent retries. See [Stage 5 datasets and benchmarks](docs/STAGE5.md) for explicit small/full
+seeds, isolated measurement environments and verification results.
 
 ## Reviewer startup
 
@@ -118,8 +118,17 @@ establish PostgreSQL correctness.
 
 Recipes inherit the caller's environment and do not load `.env` files or enter
 Nix automatically. npm entry points use the same environment behavior. There are
-no seed commands yet. Database/Compose commands are explicit and are not part of
-ordinary `check`.
+explicit isolated seed/benchmark commands documented in [Stage 5](docs/STAGE5.md).
+`just bench-focus large` (`npm run bench:focus -- large`) runs a bounded
+ten-client diagnostic workload; the full qualification command is `just bench large`.
+Benchmark reports distinguish first-access, warmup and measured errors and save
+sanitized API/PostgreSQL diagnostics automatically. A failed verdict is reported
+as `BenchmarkFailed`; warmup errors still fail the run. See the Stage 5 guide for
+report fields and capture limits.
+`just bench-integrity-plan large estimate` explains the inventory audit directly;
+use explicit `analyze` to execute it. Its manifest guard does not replace the full
+dataset verification performed by benchmark commands.
+Database/Compose commands are explicit and are not part of ordinary `check`.
 
 ### Linting and formatting
 
@@ -200,8 +209,8 @@ is five, acquisition is bounded to two seconds, connection setup to three second
 and statements/locks to five seconds. Database startup has a 30-second deadline and retries
 only retryable probe failures. Migration failures are not automatically retried.
 
-Only the migration command and application startup apply migrations. Database
-inspection commands never create schema objects. Both test commands require an
+The migration command, application startup and explicit seed command apply
+migrations. Database inspection commands never create schema objects. Both test commands require an
 explicit local `sitetrack_test` target and disposal acknowledgement; before test
 DDL/cleanup, the connected database and role are checked again. Each test creates
 a unique schema and removes only that schema after verifying its original OID.
@@ -243,5 +252,4 @@ and releases pooled connections. Graceful signal shutdown exits zero; startup
 configuration/database/migration failure exits nonzero. The initial migration
 creates the project-number sequence. Subsequent migrations add identity/access,
 tasks and inventory tables and the empty singleton company store. No user or demo
-project is seeded automatically; explicit small/large seed loaders arrive in
-Stage 5.
+project is seeded automatically; use the explicit small/large loaders documented in [Stage 5](docs/STAGE5.md).

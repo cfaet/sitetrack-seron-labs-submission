@@ -31,7 +31,8 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
             { migration_id: 3, name: "projects" },
             { migration_id: 4, name: "invitations" },
             { migration_id: 5, name: "tasks" },
-            { migration_id: 6, name: "inventory" }
+            { migration_id: 6, name: "inventory" },
+            { migration_id: 7, name: "seed_runs" }
           ])
         })
       )
@@ -47,7 +48,7 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
           expect(yield* sql`SELECT nextval('project_number_seq')::text AS number`).toEqual([{ number: "1" }])
           yield* initializeDatabase(config)
           expect((yield* inspectDatabase(config)).migrations.map((entry) => entry.migration_id)).toEqual([
-            1, 2, 3, 4, 5, 6
+            1, 2, 3, 4, 5, 6, 7
           ])
           expect(yield* sql`SELECT nextval('project_number_seq')::text AS number`).toEqual([{ number: "2" }])
           expect(yield* sql`SELECT count(*)::int AS count FROM stores WHERE project_id IS NULL`).toEqual([{ count: 1 }])
@@ -117,7 +118,7 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
           expect(yield* sql`SELECT count(*)::int AS count FROM memberships WHERE is_admin`).toEqual([{ count: 1 }])
           expect(yield* sql`SELECT count(*)::int AS count FROM stock_balances`).toEqual([{ count: 0 }])
           expect((yield* inspectDatabase(config)).migrations.map((entry) => entry.migration_id)).toEqual([
-            1, 2, 3, 4, 5, 6
+            1, 2, 3, 4, 5, 6, 7
           ])
           expect(yield* sql`SELECT nextval('project_number_seq')::text AS number`).toEqual([{ number: "2" }])
         })

@@ -339,6 +339,82 @@ describe("inventory and deliveries (STOCK/DEL/DELETE)", () => {
       )
     )
   })
+  it("pages tied delivery dates with exact filters and retains company history after project deletion", async () => {
+    await Effect.runPromise(
+      withApp(
+        async (app) => {
+          const owner = await app.register("owner@example.test"),
+            manager = await app.register("manager@example.test", "CompanyStoreManager"),
+            outsider = await app.register("outsider@example.test")
+          const material = await makeMaterial(app, owner, "Original name"),
+            one = await makeProject(app, owner, "One"),
+            two = await makeProject(app, outsider, "Two")
+          await add(app, manager, material.id, "100")
+          const opening = await send(app, manager, one.id, [{ materialId: material.id, quantity: "0.125001" }])
+          await act(app, owner, opening.id, "record")
+          const cancelled = await send(app, manager, one.id, [{ materialId: material.id, quantity: "0.000001" }])
+          await act(app, manager, cancelled.id, "cancel")
+          const rejected = await send(app, manager, one.id, [{ materialId: material.id, quantity: "0.000001" }])
+          await act(app, owner, rejected.id, "reject")
+          const returning = await send(
+            app,
+            owner,
+            one.id,
+            [{ materialId: material.id, quantity: "0.125001" }],
+            undefined,
+            true
+          )
+          await act(app, manager, returning.id, "record")
+          const pending = await send(app, manager, two.id, [{ materialId: material.id, quantity: "1" }])
+          await app.request("PATCH", `${materials}/${material.id}`, { name: "Current name" }, owner)
+          const list = async (query: string) => {
+            const response = await app.request("GET", `${company}/deliveries?${query}`, undefined, manager)
+            expect(response.status).toBe(200)
+            return Schema.decodeUnknownSync(Core.collection(M.Delivery))(await response.json())
+          }
+          const expected = [opening, cancelled, rejected, returning, pending]
+            .map((d) => d.id)
+            .sort()
+            .reverse()
+          const ids: Array<string> = []
+          for (let page = 1; page <= 3; page++) {
+            const result = await list(`pageSize=2&page=${page}`)
+            expect(result.pagination.total).toBe(5)
+            ids.push(...result.items.map((d) => d.id))
+            for (const row of result.items) expect(row.lines[0]?.material.name).toBe("Original name")
+          }
+          expect(ids).toEqual(expected)
+          const empty = await list("pageSize=2&page=99")
+          expect(empty.items).toEqual([])
+          expect(empty.pagination.total).toBe(5)
+          for (const status of ["Delivered", "Cancelled", "Rejected", "InTransit"]) {
+            const result = await list(`status=${status}`)
+            expect(result.pagination.total).toBe(status === "Delivered" ? 2 : 1)
+            expect(result.items.every((d) => d.status === status)).toBe(true)
+          }
+          const filtered = await list(
+            `projectId=${one.id}&status=Delivered&direction=ProjectToCompany&fromDate=2026-11-15&toDate=2026-11-15`
+          )
+          expect(filtered.pagination.total).toBe(1)
+          expect(filtered.items[0]).toMatchObject({
+            id: returning.id,
+            lines: [{ quantity: "0.125001" }],
+            allowedActions: []
+          })
+          expect((await list("fromDate=2026-11-16")).pagination.total).toBe(0)
+          expect((await list("toDate=2026-11-14")).pagination.total).toBe(0)
+          expect((await list("projectId=PRJ-9999")).pagination.total).toBe(0)
+          expect((await app.request("DELETE", projectPath(one.id), undefined, owner)).status).toBe(204)
+          const history = await list(`projectId=${one.id}`)
+          expect(history.pagination.total).toBe(4)
+          expect(history.items.every((d) => d.project.id === one.id && d.allowedActions.length === 0)).toBe(true)
+          expect((await app.request("GET", `${projectPath(one.id)}/deliveries`, undefined, owner)).status).toBe(404)
+          await conserved(app)
+        },
+        { now: Date.parse("2026-11-15T23:59:59.999Z") }
+      )
+    )
+  })
   it("coordinates simultaneous company withdrawals across different projects and absent stock rows", async () => {
     await Effect.runPromise(
       withApp(async (app) => {

@@ -67,7 +67,7 @@ const makeTeams = Effect.gen(function* () {
       sql`WITH visible AS (
       SELECT i.*,u.name,u.email,u.role,u.created_at AS user_created FROM invitations i JOIN users u ON u.id=i.invitee_id WHERE i.project_id=${project.internalId} AND i.status='Pending'
     ), selected AS (SELECT * FROM visible ORDER BY created_at DESC,id DESC LIMIT ${pagination.pageSize} OFFSET ${pagination.offset})
-    SELECT (SELECT count(*)::int FROM visible) AS total,coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'projectId',${projectId},'inviterId',inviter_id,'status',status,'createdAt',to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'invitee',jsonb_build_object('id',invitee_id,'name',name,'email',email,'role',role,'createdAt',to_char(user_created AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))) ORDER BY created_at DESC,id DESC) FROM selected),'[]'::jsonb) AS items`
+    SELECT (SELECT count(*)::int FROM visible) AS total,coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'projectId',${projectId}::text,'inviterId',inviter_id,'status',status,'createdAt',to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'invitee',jsonb_build_object('id',invitee_id,'name',name,'email',email,'role',role,'createdAt',to_char(user_created AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))) ORDER BY created_at DESC,id DESC) FROM selected),'[]'::jsonb) AS items`
     )
     const value = result[0]
     if (!value) return yield* Effect.die(new Error("Missing invitation collection"))

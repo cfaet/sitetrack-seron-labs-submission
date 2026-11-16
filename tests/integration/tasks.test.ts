@@ -416,6 +416,68 @@ describe("task workflows and graph contracts (ID/DAG/TASK/ACL)", () => {
       }, options)
     )
   }, 45000)
+  it("counts transitive blockers through Done intermediates across project paging modes", async () => {
+    await Effect.runPromise(
+      withApp(async (app) => {
+        const owner = await app.register("owner@example.test"),
+          outsider = await app.register("outsider@example.test"),
+          admin = await app.register("admin@example.test", "SuperAdmin"),
+          p = await project(app, owner, "Alpha blocked"),
+          empty = await project(app, owner, "Zulu empty")
+        const a = await task(app, owner, p.id, "Unfinished prerequisite"),
+          b = await task(app, owner, p.id, "Done intermediate"),
+          c = await task(app, owner, p.id, "Transitive dependent")
+        await dependency(app, owner, p.id, b.id, a.id)
+        await dependency(app, owner, p.id, c.id, b.id)
+        await Effect.runPromise(
+          app.sql`UPDATE tasks SET start_date='2099-01-01',end_date='2099-12-31' WHERE public_id IN (${a.id},${b.id},${c.id})`
+        )
+        // Deliberately inconsistent imported state: public commands prohibit this.
+        await Effect.runPromise(
+          app.sql`UPDATE tasks SET status='Done',first_started_at='2026-11-14T00:00:00Z' WHERE public_id=${b.id}`
+        )
+        const detail = Schema.decodeUnknownSync(M.Project)(
+          await (await app.request("GET", root(p.id), undefined, owner)).json()
+        )
+        expect(detail.taskCounts).toEqual({ total: 3, notStarted: 2, inProgress: 0, done: 1 })
+        expect(detail.blockedCount).toBe(1)
+        const deleted = await project(app, outsider, "Deleted late project")
+        await task(app, outsider, deleted.id, "Deleted project's first task")
+        await task(app, outsider, deleted.id, "Deleted project's second task")
+        expect((await app.request("DELETE", root(deleted.id), undefined, outsider)).status).toBe(204)
+        expect((await app.request("GET", root(deleted.id), undefined, admin)).status).toBe(404)
+        for (const query of [
+          "sort=name",
+          "sort=startDate",
+          "sort=completionPercentage&direction=desc",
+          "sort=lateCount",
+          "hasLate=false"
+        ]) {
+          const found = Schema.decodeUnknownSync(M.collection(M.Project))(
+            await (await app.request("GET", `/api/v1/projects?${query}`, undefined, owner)).json()
+          )
+          expect(found.pagination.total).toBe(2)
+          expect(found.items.find((item) => item.id === p.id)).toEqual(detail)
+          const company = Schema.decodeUnknownSync(M.collection(M.Project))(
+            await (await app.request("GET", `/api/v1/projects?${query}`, undefined, admin)).json()
+          )
+          expect(company.pagination.total).toBe(2)
+          expect(company.items.find((item) => item.id === p.id)).toEqual({ ...detail, isAdmin: false })
+          const hidden = Schema.decodeUnknownSync(M.collection(M.Project))(
+            await (await app.request("GET", `/api/v1/projects?${query}`, undefined, outsider)).json()
+          )
+          expect(hidden.items).toEqual([])
+          expect(hidden.pagination.total).toBe(0)
+        }
+        const second = Schema.decodeUnknownSync(M.collection(M.Project))(
+          await (await app.request("GET", "/api/v1/projects?sort=name&page=2&pageSize=1", undefined, owner)).json()
+        )
+        expect(second.items.map((item) => item.id)).toEqual([empty.id])
+        expect(second.items[0]?.blockedCount).toBe(0)
+        expect(second.pagination.total).toBe(2)
+      }, options)
+    )
+  })
   it("sorts project completion by unrounded ratio and supplies consistent empty-page metadata", async () => {
     await Effect.runPromise(
       withApp(async (app) => {

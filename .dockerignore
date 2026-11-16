@@ -18,3 +18,5 @@ secrets/
 *.key
 age-key*
 result
+
+.scale-results/

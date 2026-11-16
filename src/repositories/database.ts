@@ -20,11 +20,24 @@ export const execute = <A, E, R>(effect: Effect.Effect<A, E | SqlError.SqlError,
     Effect.catchIf(SqlError.isSqlError, (error) => {
       if (error.reason._tag === "UniqueViolation")
         return Effect.fail(conflict("ALREADY_EXISTS", "The resource already exists."))
+      const category =
+        error.reason._tag === "ConnectionError" && error.reason.operation === "acquireConnection"
+          ? "connection_acquisition"
+          : error.reason._tag === "StatementTimeoutError"
+            ? "statement_timeout"
+            : error.reason._tag === "LockTimeoutError"
+              ? "lock_timeout"
+              : "other_sql_failure"
+      // Reason tags are fixed library identifiers; causes/messages/SQL may contain secrets.
+      const diagnostic = Effect.logWarning({ event: "database_failure", category, reason: error.reason._tag })
       if (error.isRetryable)
-        return Effect.fail(
-          new AppError({ status: 503, code: "SERVICE_UNAVAILABLE", message: "Service temporarily unavailable." })
+        return Effect.andThen(
+          diagnostic,
+          Effect.fail(
+            new AppError({ status: 503, code: "SERVICE_UNAVAILABLE", message: "Service temporarily unavailable." })
+          )
         )
-      return Effect.die(error)
+      return Effect.andThen(diagnostic, Effect.die(error))
     })
   )
 export const UserRow = Schema.Struct({

@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { Effect, Layer, Schema } from "effect"
+import { Effect, Layer, Schema, Logger, References } from "effect"
+import { SqlError } from "effect/sql"
 import { HttpRouter, HttpServer } from "effect/http"
 import { DatabaseHealth, routes } from "../../src/api/routes.js"
 import { ErrorBody } from "../../src/api/api.js"
 import { DatabaseUnavailable } from "../../src/db/database.js"
+import { execute } from "../../src/repositories/database.js"
 
 const disposers: Array<() => Promise<void>> = []
 afterEach(async () => {
@@ -21,6 +23,29 @@ const app = (check: Effect.Effect<void, DatabaseUnavailable> = Effect.void) => {
 }
 
 describe("foundation HTTP contracts", () => {
+  it("correlates sanitized database failures with the server-generated request id", async () => {
+    const annotations: Array<Readonly<Record<string, unknown>>> = []
+    const logger = Logger.make(({ fiber }) => {
+      annotations.push(fiber.getRef(References.CurrentLogAnnotations))
+    })
+    const check = execute(
+      Effect.fail(
+        new SqlError.SqlError({
+          reason: new SqlError.ConnectionError({
+            cause: new Error("PRIVATE_SENTINEL"),
+            operation: "acquireConnection"
+          })
+        })
+      )
+    ).pipe(
+      Effect.mapError(() => new DatabaseUnavailable()),
+      Effect.provide(Logger.layer([logger]))
+    )
+    const response = await app(check)("/health/ready", { "X-Request-Id": "untrusted" })
+    expect(response.status).toBe(503)
+    expect(annotations).toEqual([{ requestId: response.headers.get("x-request-id") }])
+    expect(await response.text()).not.toContain("PRIVATE_SENTINEL")
+  })
   it("liveness never queries the database", async () => {
     const response = await app(Effect.die("must not run"))("/health/live")
     expect(response.status).toBe(200)

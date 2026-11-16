@@ -78,23 +78,33 @@ export const readDeliveries = Effect.fn("readDeliveries")(function* (
   if (projectId === undefined && !canUseCompanyStore(actor.user.role)) return yield* forbidden()
   const sql = yield* Database,
     pagination = page(query)
+  const scoped = projectId !== undefined || query.projectId !== undefined
+  // Reuse predicates, not a materialized copy of every matching delivery.
+  const filter = sql`${scoped ? sql`d.project_id IN (SELECT id FROM scope)` : sql`true`}
+    ${query.status === undefined ? sql`` : sql`AND d.status=${query.status}`}
+    ${query.direction === undefined ? sql`` : sql`AND d.direction=${query.direction}`}
+    ${query.fromDate === undefined ? sql`` : sql`AND d.initiated_at >= (${query.fromDate}::date::timestamp AT TIME ZONE 'UTC')`}
+    ${query.toDate === undefined ? sql`` : sql`AND d.initiated_at < ((${query.toDate}::date+1)::timestamp AT TIME ZONE 'UTC')`}`
   const found = yield* rows(
     Schema.Struct({ visible: Schema.Boolean, items: Schema.Array(Snapshot), total: Schema.Int }),
     sql`WITH scope AS (
-    SELECT p.id FROM projects p WHERE (${projectId === undefined} OR (p.public_id=${projectId ?? ""} AND p.deleted_at IS NULL
-      AND (${actor.user.role === "SuperAdmin"} OR EXISTS(SELECT 1 FROM memberships m WHERE m.project_id=p.id AND m.user_id=${actor.user.id}))))
-    AND (${query.projectId === undefined} OR p.public_id=${query.projectId ?? ""})
-  ), filtered AS (
-    SELECT d.* FROM deliveries d JOIN scope s ON s.id=d.project_id
-    WHERE (${query.status === undefined} OR d.status=${query.status ?? ""})
-      AND (${query.direction === undefined} OR d.direction=${query.direction ?? ""})
-      AND (${query.fromDate === undefined} OR d.initiated_at >= (${query.fromDate ?? "0001-01-01"}::date::timestamp AT TIME ZONE 'UTC'))
-      AND (${query.toDate === undefined} OR d.initiated_at < ((${query.toDate ?? "9999-12-30"}::date+1)::timestamp AT TIME ZONE 'UTC'))
-  ), selected AS (SELECT * FROM filtered ORDER BY initiated_at DESC,id DESC LIMIT ${pagination.pageSize} OFFSET ${pagination.offset})
-  SELECT (${projectId === undefined} OR EXISTS(SELECT 1 FROM scope)) AS visible,(SELECT count(*)::int FROM filtered) AS total,
+    SELECT p.id FROM projects p WHERE ${
+      projectId === undefined
+        ? sql`true`
+        : sql`p.public_id=${projectId} AND p.deleted_at IS NULL
+      AND ${actor.user.role === "SuperAdmin" ? sql`true` : sql`EXISTS(SELECT 1 FROM memberships m WHERE m.project_id=p.id AND m.user_id=${actor.user.id})`}`
+    }
+    ${query.projectId === undefined ? sql`` : sql`AND p.public_id=${query.projectId}`}
+  ), selected AS MATERIALIZED (
+    SELECT d.id,d.initiated_at FROM deliveries d WHERE ${filter}
+    ORDER BY d.initiated_at DESC,d.id DESC LIMIT ${pagination.pageSize} OFFSET ${pagination.offset}
+  )
+  SELECT ${projectId === undefined ? sql`true` : sql`EXISTS(SELECT 1 FROM scope)`} AS visible,
+    (SELECT count(*)::int FROM deliveries d WHERE ${filter}) AS total,
     coalesce((SELECT jsonb_agg(jsonb_build_object('value',${deliveryJson(sql)},'projectActive',p.deleted_at IS NULL,
       'member',EXISTS(SELECT 1 FROM memberships m WHERE m.project_id=p.id AND m.user_id=${actor.user.id})) ORDER BY d.initiated_at DESC,d.id DESC)
-    FROM selected d JOIN projects p ON p.id=d.project_id JOIN users u ON u.id=d.initiated_by LEFT JOIN users c ON c.id=d.closed_by),'[]'::jsonb) AS items`
+    FROM selected s JOIN deliveries d ON d.id=s.id JOIN projects p ON p.id=d.project_id
+    JOIN users u ON u.id=d.initiated_by LEFT JOIN users c ON c.id=d.closed_by),'[]'::jsonb) AS items`
   )
   const result = found[0]
   if (!result?.visible) return yield* notFound()

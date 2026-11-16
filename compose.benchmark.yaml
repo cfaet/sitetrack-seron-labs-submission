@@ -1,0 +1,18 @@
+services:
+  db:
+    cpus: 1.0
+    mem_limit: 3g
+    shm_size: 256m
+  api:
+    cpus: 1.0
+    mem_limit: 1g
+  tools:
+    build: .
+    profiles: [tools]
+    cpus: 1.0
+    mem_limit: 512m
+    environment:
+      DATABASE_URL: postgresql://sitetrack:sitetrack_demo_only@db:5432/sitetrack
+      SITETRACK_SEED_ALLOWED: "true"
+      BENCH_BASE_URL: http://api:3000
+    entrypoint: [node, dist/scale/cli.js]

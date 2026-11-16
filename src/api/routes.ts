@@ -48,6 +48,7 @@ export const RequestMiddleware = HttpRouter.middleware<{ provides: RequestId }>(
     const requestId = randomUUID()
     const started = yield* Clock.currentTimeMillis
     const response = yield* app.pipe(
+      Effect.annotateLogs({ requestId }),
       Effect.provideService(RequestId, requestId),
       Effect.provideService(
         HttpServerRequest.HttpServerRequest,

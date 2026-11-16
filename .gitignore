@@ -13,3 +13,6 @@ secrets/
 *.pem
 *.key
 age-key*
+
+# Local scale datasets use Docker volumes; reports and orchestration locks stay local.
+.scale-results/

@@ -23,13 +23,14 @@ services:
       # Public local-only signing key, independent of native private credentials.
       AUTH_JWT_SECRET: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc
       AUTH_COOKIE_SECURE: "false"
+      AUTH_ALLOWED_ORIGINS: "http://localhost:${SITETRACK_HTTP_PORT:-3000},http://127.0.0.1:${SITETRACK_HTTP_PORT:-3000}"
       HOST: 0.0.0.0
       PORT: "3000"
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${SITETRACK_HTTP_PORT:-3000}:3000"
     stop_grace_period: 15s
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]

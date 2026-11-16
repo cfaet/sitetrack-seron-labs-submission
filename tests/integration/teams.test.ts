@@ -26,6 +26,20 @@ describe("teams, invitations and notifications (INV-01, MEM-01, ACL)", () => {
         )
         expect(invited.status).toBe(201)
         const invitation = Schema.decodeUnknownSync(Model.Invitation)(await invited.json())
+        const listed = await request("GET", `/api/v1/projects/${project.id}/invitations`, undefined, owner)
+        expect(listed.status).toBe(200)
+        const pending = Schema.decodeUnknownSync(Model.collection(Model.Invitation))(await listed.json())
+        expect(pending.items.map((item) => item.id)).toEqual([invitation.id])
+        expect(pending.pagination.total).toBe(1)
+        const empty = await request("GET", `/api/v1/projects/${project.id}/invitations?page=2`, undefined, owner)
+        expect(empty.status).toBe(200)
+        const beyond = Schema.decodeUnknownSync(Model.collection(Model.Invitation))(await empty.json())
+        expect(beyond.items).toEqual([])
+        expect(beyond.pagination.total).toBe(1)
+        expect((await request("GET", `/api/v1/projects/${project.id}/invitations`, undefined, outsider)).status).toBe(
+          404
+        )
+
         expect(
           (
             await request(

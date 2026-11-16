@@ -79,3 +79,51 @@ compose-logs:
 # Validate the Compose definition without starting services or printing values.
 compose-check:
     docker compose config --quiet
+
+# Build/start an isolated scale environment (small or large).
+bench-up profile="small":
+    npm run scale:up -- {{profile}}
+
+# Populate and verify the isolated small dataset; existing data is never replaced.
+seed-small:
+    npm run seed:small
+
+# Explicitly load the full assignment dataset into its isolated environment.
+seed-large:
+    npm run seed:large
+
+# Verify profile counts and graph/inventory invariants.
+seed-check profile="small":
+    npm run seed:check -- {{profile}}
+
+# Short HTTP verification and timing run.
+bench-smoke profile="small":
+    npm run bench:smoke -- {{profile}}
+
+# Full HTTP benchmark protocol, with saved reports.
+bench profile="small":
+    npm run bench -- {{profile}}
+
+# Run a bounded ten-client diagnostic workload.
+bench-focus profile="large":
+    npm run bench:focus -- {{profile}}
+
+# Capture actual repository-query execution plans.
+bench-plans profile="small":
+    npm run bench:plans -- {{profile}}
+
+# Explain the inventory audit directly; analyze executes it with the tools deadline.
+bench-integrity-plan profile="large" mode="estimate":
+    npm run bench:integrity-plan -- {{profile}} {{mode}}
+
+# Inspect services and dataset readiness.
+bench-status profile="small":
+    npm run bench:status -- {{profile}}
+
+# Show the latest saved report.
+bench-report profile="small":
+    npm run bench:report -- {{profile}}
+
+# Stop a scale environment while retaining its volume.
+bench-down profile="small":
+    npm run scale:down -- {{profile}}
