@@ -11,7 +11,7 @@ import { profiles, demoPassword } from "../../src/scale/profile.js"
 import { Passwords } from "../../src/services/security.js"
 import { SqlClient } from "effect/sql"
 import { PgClient } from "@effect/sql-pg"
-import { withTestDatabase } from "./database-fixture.js"
+import { withTestDatabase, withTestMaintenance } from "./database-fixture.js"
 import { rows } from "../../src/repositories/database.js"
 
 class FixtureRollback extends Data.TaggedError("FixtureRollback") {}
@@ -22,11 +22,12 @@ describe("seed safety and invariants (SCALE-01)", () => {
       withTestDatabase((config) =>
         Effect.gen(function* () {
           yield* initializeDatabase(config)
-          yield* loadSeed("small", true)
+          yield* loadSeed("small", true).pipe(withTestMaintenance)
           const sql = yield* SqlClient.SqlClient
           const count = () =>
             rows(Schema.Struct({ count: Schema.Int }), movementIntegrityQuery(sql)).pipe(
-              Effect.map((found) => found[0]?.count)
+              Effect.map((found) => found[0]?.count),
+              withTestMaintenance
             )
           const selected = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ id: Schema.String })))(
             yield* sql`SELECT a.id::text AS id FROM stock_movements a JOIN deliveries d ON d.id=a.delivery_id
@@ -90,14 +91,14 @@ describe("seed safety and invariants (SCALE-01)", () => {
         }).pipe(Effect.provide(Passwords.layer))
       )
     )
-  })
+  }, 180000)
   it("guards direct inventory plans and preserves full validation of malformed movements", async () => {
     await Effect.runPromise(
       withTestDatabase((config) =>
         Effect.gen(function* () {
           yield* initializeDatabase(config)
           expect(yield* Effect.exit(integrityPlan("small", "estimate"))).toMatchObject({ _tag: "Failure" })
-          yield* loadSeed("small", true)
+          yield* loadSeed("small", true).pipe(withTestMaintenance)
           expect(yield* Effect.exit(integrityPlan("large", "estimate"))).toMatchObject({ _tag: "Failure" })
           const estimate = yield* integrityPlan("small", "estimate")
           expect(estimate).toMatchObject({ passed: true, analyzed: false, actual: null })
@@ -115,7 +116,7 @@ describe("seed safety and invariants (SCALE-01)", () => {
             yield* movementIntegrityQuery(sql)
           )
           expect(violations[0]?.count).toBe(1)
-          expect(yield* Effect.exit(checkSeed("small"))).toMatchObject({ _tag: "Failure" })
+          expect(yield* Effect.exit(checkSeed("small").pipe(withTestMaintenance))).toMatchObject({ _tag: "Failure" })
         }).pipe(Effect.provide(Passwords.layer))
       )
     )
@@ -125,15 +126,15 @@ describe("seed safety and invariants (SCALE-01)", () => {
       withTestDatabase((config) =>
         Effect.gen(function* () {
           yield* initializeDatabase(config)
-          expect(yield* loadSeed("small", true)).toEqual(profiles.small)
-          expect(yield* loadSeed("small", true)).toEqual(profiles.small)
+          expect(yield* loadSeed("small", true).pipe(withTestMaintenance)).toEqual(profiles.small)
+          expect(yield* loadSeed("small", true).pipe(withTestMaintenance)).toEqual(profiles.small)
           expect(yield* Effect.exit(loadSeed("large", true))).toMatchObject({ _tag: "Failure" })
           const sql = yield* SqlClient.SqlClient
           yield* sql`UPDATE seed_runs SET counts=jsonb_set(counts,'{tasks}','0'::jsonb)`
-          expect(yield* Effect.exit(checkSeed("small"))).toMatchObject({ _tag: "Failure" })
+          expect(yield* Effect.exit(checkSeed("small").pipe(withTestMaintenance))).toMatchObject({ _tag: "Failure" })
           yield* sql`UPDATE seed_runs SET counts=${JSON.stringify(profiles.small)}::jsonb`
           yield* sql`UPDATE stock_balances SET quantity=quantity+1 WHERE store_id='00000000-0000-4000-8000-000000000001'`
-          expect(yield* Effect.exit(checkSeed("small"))).toMatchObject({ _tag: "Failure" })
+          expect(yield* Effect.exit(checkSeed("small").pipe(withTestMaintenance))).toMatchObject({ _tag: "Failure" })
         }).pipe(Effect.provide(Passwords.layer))
       )
     )
@@ -180,7 +181,11 @@ it("serves seeded demo accounts and allocates project/task IDs beyond seeded cou
   await Effect.runPromise(
     withApp(async ({ request, sql }) => {
       await Effect.runPromise(
-        loadSeed("small", true).pipe(Effect.provideService(SqlClient.SqlClient, sql), Effect.provide(Passwords.layer))
+        loadSeed("small", true).pipe(
+          withTestMaintenance,
+          Effect.provideService(SqlClient.SqlClient, sql),
+          Effect.provide(Passwords.layer)
+        )
       )
       const response = await request("POST", "/api/v1/auth/login", {
         email: "user3@sitetrack.example",
@@ -198,4 +203,4 @@ it("serves seeded demo accounts and allocates project/task IDs beyond seeded cou
       expect(Schema.decodeUnknownSync(TaskModel.TaskDetail)(await task.json()).id).toBe("PRJ-0001-T-0301")
     })
   )
-})
+}, 180000)

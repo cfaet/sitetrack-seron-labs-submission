@@ -17,8 +17,8 @@ export default defineConfig({
           include: ["tests/integration/**/*.{test,spec}.ts"],
           exclude: [...configDefaults.exclude, "repos/**", "dist/**", "coverage/**"],
           fileParallelism: false,
-          testTimeout: 45000,
-          hookTimeout: 45000
+          testTimeout: 90000,
+          hookTimeout: 90000
         }
       }
     ],

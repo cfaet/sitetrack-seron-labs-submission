@@ -81,7 +81,7 @@ describe("real startup and resource lifecycle (BOOT-02)", () => {
           const port = yield* Effect.promise(freePort)
           const loader = Migrator.fromRecord({ "0001_broken": Effect.fail(new BrokenMigration({ message: "broken" })) })
           const failure = yield* Layer.build(serverLayer({ ...config, port }, loader)).pipe(Effect.flip)
-          expect(failure._tag).toBe("StartupError")
+          expect(failure).toMatchObject({ _tag: "StartupError", phase: "migration", reason: "migration_failure" })
           yield* Effect.promise(async () => {
             await expect(request(port)).rejects.toThrow()
           })
@@ -130,7 +130,8 @@ describe("real startup and resource lifecycle (BOOT-02)", () => {
             Layer.build(serverLayer({ ...config, databaseUrl: Redacted.make(url.toString()) }))
           ).pipe(Effect.flip)
           expect(failure._tag).toBe("StartupError")
-          expect(performance.now() - started).toBeLessThan(35000)
+          expect(failure).toMatchObject({ phase: "startup", reason: "deadline_exceeded" })
+          expect(performance.now() - started).toBeLessThan(65000)
         })
       )
     )
@@ -208,7 +209,7 @@ describe("real startup and resource lifecycle (BOOT-02)", () => {
               })
               const exited = once(child, "exit")
               try {
-                const deadline = Date.now() + 30000
+                const deadline = Date.now() + 65000
                 let ready = false
                 while (Date.now() < deadline && child.exitCode === null && child.signalCode === null) {
                   try {
@@ -236,5 +237,5 @@ describe("real startup and resource lifecycle (BOOT-02)", () => {
         })
       )
     )
-  })
+  }, 240000)
 })

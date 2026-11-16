@@ -4,6 +4,7 @@ import { Effect, Layer, Logger, Schema } from "effect"
 import { SqlClient, SqlError } from "effect/sql"
 import { ConfigurationError, readConfig } from "../config/config.js"
 import { initializeDatabase } from "../db/migrate.js"
+import { StartupError } from "../db/startup.js"
 import { rows } from "../repositories/database.js"
 import { Passwords } from "../services/security.js"
 import { benchmark } from "./benchmark.js"
@@ -91,11 +92,16 @@ const main = Effect.gen(function* () {
         JSON.stringify({
           event: "scale_failed",
           kind: error._tag,
-          ...(SqlError.isSqlError(error) ? { reason: error.reason._tag } : {}),
+          ...(error instanceof StartupError
+            ? { phase: error.phase, reason: error.reason }
+            : SqlError.isSqlError(error)
+              ? { reason: error.reason._tag }
+              : {}),
           message:
             error instanceof ConfigurationError ||
             error instanceof BenchmarkFailed ||
-            error instanceof IntegrityPlanFailed
+            error instanceof IntegrityPlanFailed ||
+            error instanceof StartupError
               ? error.message
               : "Scale command failed; inspect the phase and PostgreSQL diagnostics."
         }) + "\n"

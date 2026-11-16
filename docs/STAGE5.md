@@ -314,6 +314,58 @@ and the failed run cleaned all test-owned schemas and stopped its disposable
 PG16.16 cluster. These failures are recorded alongside the clean focused HTTP
 run; they are not hidden by it.
 
+## Delivery reliability follow-up
+
+The owner has deferred further latency tuning in favor of reliable startup,
+correct HTTP workflows and reproducible delivery. The prior 53/56 integration
+result is historical; the new full suite passed 57/57 after the timeout changes.
+
+Startup now allows 60 seconds overall and 30 seconds per migration statement,
+scoped to the migration transaction. Ordinary API statements and locks retain
+their five-second limits. Test-owned schema DDL and explicit seed/audit operations use a
+transaction-local 30-second allowance; standalone scale tools still use 300
+seconds. Tests and Compose startup health checks have corresponding bounded
+budgets. Structured startup errors distinguish probe/migration/deadline failures
+and statement/lock/connection categories without raw SQL or private causes.
+
+Phase 1 short checks passed: formatting, warning-free lint, strict types,
+production build, five targeted startup unit tests and Compose configuration
+validation. Fabrizio subsequently ran the targeted PostgreSQL tests (19/19 in
+120.73 seconds), then the complete suite (57/57 in 358.43 seconds). The new
+same-connection commit/rollback regression passed. His standard check passed
+92 unit tests, zero-warning lint, formatting, types and build. Saved results are
+`.scale-results/phase1-integration.log`, `.scale-results/phase2-integration.log`
+and `.scale-results/phase2-check.log`. These are native PostgreSQL test results;
+the later clean-checkout Docker lifecycle verification remains separate.
+
+Fabrizio subsequently built/started reviewer project
+`sitetrack-review-20261116141237`; API and PostgreSQL became healthy, and all
+95 HTTP workflow requests and schema/business assertions passed. The run ended
+with `workflow_passed` and all created sessions revoked. Local logs are
+`.scale-results/phase3-compose.log` and `.scale-results/phase3-workflows.log`.
+No unexpected 5xx/workflow failure occurred. This is working-tree Docker evidence,
+not the pending exact-commit fresh-checkout/lifecycle rehearsal or final review.
+
+Fabrizio runs the longer checks. From the repository's Nix shell, first run:
+
+```sh
+sops exec-env secrets/test.enc.env 'npm run test:integration -- tests/integration/migrations.test.ts tests/integration/lifecycle.test.ts tests/integration/scale.test.ts'
+```
+
+After that passes, run the complete PostgreSQL suite and standard checks:
+
+```sh
+sops exec-env secrets/test.enc.env 'just test-integration'
+just check
+```
+
+The test bundle must identify the approved local disposable `sitetrack_test`
+database and role. These checks create and clean only test-owned schemas; they
+do not reset the development database or retained benchmark dataset. Fresh
+Compose rehearsal and full user-workflow verification follow separately. See
+[delivery verification](DELIVERY.md) for the explicit HTTP workflow command and
+fresh-checkout protocol. The workflow runner is separate from performance tests.
+
 ## Execution evidence
 
 Qualification is in progress. On 15 November 2026, the large generator-v2 dataset

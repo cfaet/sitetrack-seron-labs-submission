@@ -8,6 +8,13 @@ import { assertTestDatabase } from "../../src/db/inspect.js"
 
 const Oids = Schema.Array(Schema.Struct({ oid: Schema.String }))
 
+// Only test-owned schema DDL and seed/audit work use this allowance; API limits stay intact.
+export const withTestMaintenance = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    return yield* sql.withTransaction(Effect.andThen(sql`SET LOCAL statement_timeout = '30s'`, effect))
+  })
+
 // Test configuration is checked before connecting, and identity before any DDL.
 // Cleanup is scoped to a schema this run created and whose OID still matches.
 export const withTestDatabase = <A, E>(
@@ -32,7 +39,7 @@ export const withTestDatabase = <A, E>(
               if (oid === undefined)
                 return yield* new ConfigurationError({ message: "Could not identify test-owned schema." })
               return oid
-            }),
+            }).pipe(withTestMaintenance),
             (oid) =>
               Effect.gen(function* () {
                 yield* assertTestDatabase
@@ -42,7 +49,7 @@ export const withTestDatabase = <A, E>(
                 if (rows[0]?.oid !== oid)
                   return yield* new ConfigurationError({ message: "Refusing cleanup: test schema identity changed." })
                 yield* sql`DROP SCHEMA ${sql(schema)} CASCADE`
-              }).pipe(Effect.orDie)
+              }).pipe(withTestMaintenance, Effect.orDie)
           )
           const config = Object.freeze({ ...base, schema, host: "127.0.0.1", port: 0 })
           return yield* Effect.scoped(run(config)).pipe(Effect.provide(databaseLayer(config)))

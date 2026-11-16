@@ -80,6 +80,10 @@ compose-logs:
 compose-check:
     docker compose config --quiet
 
+# Exercise complete HTTP workflows in an explicitly named isolated reviewer project.
+verify-workflows project:
+    npm run verify:workflows -- {{quote(project)}}
+
 # Build/start an isolated scale environment (small or large).
 bench-up profile="small":
     npm run scale:up -- {{profile}}

@@ -18,6 +18,7 @@
     "db:check": "tsx src/db/cli.ts check",
     "db:test:check": "tsx src/db/cli.ts test-check",
     "db:migrate": "tsx src/db/cli.ts migrate",
+    "verify:workflows": "tsx src/review/host.ts",
     "scale:up": "tsx src/scale/host.ts up",
     "scale:down": "tsx src/scale/host.ts down",
     "seed:small": "tsx src/scale/host.ts seed small",

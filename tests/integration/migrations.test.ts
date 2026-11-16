@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { Data, Deferred, Effect, Fiber, Schema } from "effect"
+import { PgClient } from "@effect/sql-pg"
+import { Reactivity } from "effect/reactivity"
 import { Migrator, SqlClient } from "effect/sql"
 import { databaseLayer } from "../../src/db/database.js"
 import { initializeDatabase, migrate } from "../../src/db/migrate.js"
@@ -9,7 +11,7 @@ import identity from "../../src/db/migrations/0002_identity.js"
 import projects from "../../src/db/migrations/0003_projects.js"
 import invitations from "../../src/db/migrations/0004_invitations.js"
 import tasks from "../../src/db/migrations/0005_tasks.js"
-import { withTestDatabase } from "./database-fixture.js"
+import { withTestDatabase, withTestMaintenance } from "./database-fixture.js"
 
 class BrokenMigration extends Data.TaggedError("BrokenMigration")<{ readonly message: string }> {}
 
@@ -168,7 +170,7 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
             })
           })
           const failure = yield* initializeDatabase(config, loader).pipe(Effect.flip)
-          expect(failure._tag).toBe("StartupError")
+          expect(failure).toMatchObject({ _tag: "StartupError", phase: "migration", reason: "migration_failure" })
           const sql = yield* SqlClient.SqlClient
           const rows = yield* Schema.decodeUnknownEffect(
             Schema.Array(Schema.Struct({ name: Schema.NullOr(Schema.String) }))
@@ -176,6 +178,62 @@ describe("PostgreSQL migrations (BOOT-02)", () => {
           expect(rows).toEqual([{ name: null }])
           expect((yield* inspectDatabase(config)).migrations).toEqual([])
           yield* initializeDatabase(config)
+        })
+      )
+    )
+  })
+
+  it("restores request limits on the same connection after migration and maintenance commit or rollback", async () => {
+    await Effect.runPromise(
+      withTestDatabase((config) =>
+        Effect.gen(function* () {
+          const pool = yield* PgClient.PgClient
+          // A dedicated connection makes the restoration assertions independent of pool checkout order.
+          const sql = yield* PgClient.makeClient(pool.config).pipe(Effect.provide(Reactivity.layer))
+          const limits = Schema.decodeUnknownEffect(
+            Schema.Array(Schema.Struct({ statement: Schema.String, lock: Schema.String }))
+          )
+          const inspect = () =>
+            sql`SELECT current_setting('statement_timeout') AS statement, current_setting('lock_timeout') AS lock`.pipe(
+              Effect.flatMap(limits)
+            )
+          const broken = Migrator.fromRecord({
+            "0001_broken": Effect.gen(function* () {
+              expect(yield* inspect()).toEqual([{ statement: "30s", lock: "5s" }])
+              return yield* new BrokenMigration({ message: "deliberate rollback" })
+            })
+          })
+          const failed = yield* initializeDatabase(config, broken).pipe(
+            Effect.provideService(SqlClient.SqlClient, sql),
+            Effect.flip
+          )
+          expect(failed).toMatchObject({ phase: "migration", reason: "migration_failure" })
+          expect(yield* inspect()).toEqual([{ statement: "5s", lock: "5s" }])
+          const success = Migrator.fromRecord({
+            "0001_slow": Effect.gen(function* () {
+              expect(yield* inspect()).toEqual([{ statement: "30s", lock: "5s" }])
+              // This exceeds the request deadline and must still complete during migration.
+              yield* sql`SELECT pg_sleep(5.1)`
+            })
+          })
+          yield* initializeDatabase(config, success).pipe(Effect.provideService(SqlClient.SqlClient, sql))
+          expect(yield* inspect()).toEqual([{ statement: "5s", lock: "5s" }])
+          yield* inspect().pipe(
+            Effect.tap((settings) =>
+              Effect.sync(() => {
+                expect(settings).toEqual([{ statement: "30s", lock: "5s" }])
+              })
+            ),
+            withTestMaintenance,
+            Effect.provideService(SqlClient.SqlClient, sql)
+          )
+          expect(yield* inspect()).toEqual([{ statement: "5s", lock: "5s" }])
+          yield* Effect.fail(new BrokenMigration({ message: "maintenance rollback" })).pipe(
+            withTestMaintenance,
+            Effect.provideService(SqlClient.SqlClient, sql),
+            Effect.flip
+          )
+          expect(yield* inspect()).toEqual([{ statement: "5s", lock: "5s" }])
         })
       )
     )

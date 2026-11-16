@@ -15,7 +15,7 @@ const main = Effect.gen(function* () {
     if (command === "test-check") yield* assertTestDatabase
     if (command === "migrate") yield* initializeDatabase(config)
     yield* Effect.logInfo(yield* inspectDatabase(config))
-  }).pipe(Effect.timeout("30 seconds"), Effect.provide(databaseLayer(config)))
+  }).pipe(Effect.timeout(command === "migrate" ? "70 seconds" : "30 seconds"), Effect.provide(databaseLayer(config)))
 }).pipe(
   Effect.catchCauseIf(
     (cause) => !Cause.hasInterruptsOnly(cause),

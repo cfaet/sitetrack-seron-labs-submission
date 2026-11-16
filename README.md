@@ -15,6 +15,8 @@ for task actions, relationship pagination, filters and company dates. See
 [Stage 4 materials and deliveries](docs/STAGE4.md) for exact quantities, stock
 movement, permissions and idempotent retries. See [Stage 5 datasets and benchmarks](docs/STAGE5.md) for explicit small/full
 seeds, isolated measurement environments and verification results.
+See [delivery verification](docs/DELIVERY.md) for the current passing test baseline,
+complete HTTP workflows and the pending fresh-checkout rehearsal.
 
 ## Reviewer startup
 
@@ -96,6 +98,7 @@ Run commands from the repository root. `just` or `just --list` lists the recipes
 | `just compose-down` | `docker compose down` | Stop services, preserving volumes |
 | `just compose-logs` | `docker compose logs --follow` | Follow service logs |
 | `just compose-check` | `docker compose config --quiet` | Validate Compose without starting or printing configuration |
+| `just verify-workflows PROJECT` | `npm run verify:workflows -- PROJECT` | Exercise complete HTTP workflows inside an explicitly named `sitetrack-review-*` Compose project; creates demo records |
 
 Build explicitly before starting:
 
@@ -206,8 +209,26 @@ private bundle files.
 Database URLs reject query parameters and fragments to prevent connection-option
 overrides; the current native/reviewer paths use local TCP connections. Pool size
 is five, acquisition is bounded to two seconds, connection setup to three seconds,
-and statements/locks to five seconds. Database startup has a 30-second deadline and retries
-only retryable probe failures. Migration failures are not automatically retried.
+and ordinary statements/locks to five seconds. Database startup has a 60-second
+deadline and retries only retryable probe failures. Migration statements receive
+a transaction-local 30-second allowance; after commit or rollback, the connection
+returns to its normal statement limit. The five-second lock limit is unchanged.
+Migration failures are not automatically retried. API health checks allow a
+65-second startup period; the migration CLI allows 70 seconds including its final
+inspection. Read-only database CLI checks retain their 30-second outer deadline.
+
+Startup failures emit `database_startup_failed` with fixed `phase` and `reason`
+fields: availability probe, migration failure or the overall startup deadline.
+Statement/lock timeouts and connection failures are distinguished without logging
+raw database causes, SQL, parameters or connection URLs. Application startup still
+fails nonzero and never listens before migrations complete.
+
+Integration tests allow 90 seconds per test/hook, with explicit longer bounds for
+repeated restart and seed/audit scenarios. Test-owned schema creation/cleanup and
+explicit seed/audit operations get a transaction-local 30-second maintenance
+statement allowance; test HTTP handlers
+keep the normal request pool and limits. Offline scale tools retain their separate
+300-second statement limit. These changes do not raise ordinary API query limits.
 
 The migration command, application startup and explicit seed command apply
 migrations. Database inspection commands never create schema objects. Both test commands require an

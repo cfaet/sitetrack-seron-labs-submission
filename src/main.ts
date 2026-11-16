@@ -3,7 +3,7 @@ import { Cause, Effect, Exit, Layer, Logger, Runtime } from "effect"
 import { readAuthConfig } from "./config/auth.js"
 import { readConfig } from "./config/config.js"
 import { readCompanyZone } from "./config/company.js"
-import { StartupError } from "./db/migrate.js"
+import { StartupError } from "./db/startup.js"
 import { serverLayer } from "./server.js"
 
 const main = Effect.gen(function* () {
@@ -16,7 +16,15 @@ const main = Effect.gen(function* () {
     (cause) => !Cause.hasInterruptsOnly(cause),
     () =>
       Effect.logError({ event: "startup_failed", message: "Check configuration and database availability." }).pipe(
-        Effect.andThen(Effect.fail(new StartupError({ message: "Application startup failed." })))
+        Effect.andThen(
+          Effect.fail(
+            new StartupError({
+              message: "Application startup failed.",
+              phase: "application",
+              reason: "startup_failure"
+            })
+          )
+        )
       )
   ),
   Effect.provide(Logger.layer([Logger.consoleJson]))
